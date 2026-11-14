@@ -1,0 +1,30 @@
+id: python_sum
+profile: coder
+approve: all   # eval 전용 임시 폴더에서만 실행된다
+task: "numbers.txt 에 있는 숫자들의 합계와 평균을 run_python 으로 계산해서 알려줘."
+files:
+  numbers.txt: |
+    17
+    42
+    8
+    91
+    33
+    64
+    5
+    77
+    29
+    50
+    12
+    88
+    46
+    3
+    71
+    38
+    19
+    95
+    60
+    24
+checks:
+  answer_contains: ["872", "43.6"]
+  tools_used: [run_python]
+  max_steps: 6

@@ -1,0 +1,29 @@
+{
+  "name": "local-agent-web",
+  "private": true,
+  "version": "1.0.0",
+  "description": "로컬 에이전트 관리 화면 (React + TypeScript). 빌드 결과(dist/)를 관리 서버가 내보낸다.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "gen:api": "openapi-typescript openapi.json --default-non-nullable false -o src/api/schema.d.ts"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,5 @@
+# 선택: 관리 › Claude Code 탭 (이 PC 에 설치·로그인된 Claude Code CLI 를 화면에서 쓰기). 인터넷이 필요하다.
+#   .venv\Scripts\pip install -r requirements-claude-code.txt
+# 폐쇄망 반입 묶음(scripts/make_offline_bundle.ps1)에는 넣지 않는다 — 이 패키지 안에 350MB 짜리 CLI 사본이 들어 있고,
+# 폐쇄망에서는 쓸 수 없는 기능이기 때문이다 (없으면 탭에 '설치 필요'만 보인다).
+claude-agent-sdk==0.2.180

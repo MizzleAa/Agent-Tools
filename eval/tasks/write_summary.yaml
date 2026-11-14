@@ -1,0 +1,17 @@
+id: write_summary
+profile: general
+approve: writes
+task: "data/sales.csv 를 읽고 행 수(헤더 제외)와 열 이름을 summary.md 파일로 저장해줘."
+files:
+  data/sales.csv: |
+    date,region,amount
+    2026-10-01,서울,120000
+    2026-10-02,부산,98000
+    2026-10-03,서울,143000
+    2026-10-04,대구,76000
+    2026-10-05,부산,110000
+checks:
+  file_contains:
+    summary.md: ["date", "region", "amount", "5"]
+  tools_used: [read_file, write_file]
+  max_steps: 6

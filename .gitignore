@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+dist/
+config/secrets.yaml
+config/user_secrets.yaml
+config/access.yaml
+# 화면·채팅으로 등록한 사내 사이트·API 목록 (PC 마다 다르고 사내 주소가 들어간다 — 없으면 빈 목록으로 시작)
+config/connections.yaml
+.env
+*.log
+# Claude Code 가 PC 마다 만드는 파일 (.claude/work 진행표·조사 기록은 올린다)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+models/*.gguf
+runtime/
+workspace/*
+!workspace/.gitkeep
+.playwright-mcp/
+web/node_modules/

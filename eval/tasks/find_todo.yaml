@@ -1,0 +1,22 @@
+id: find_todo
+profile: general
+approve: none
+task: "코드에서 TODO 주석이 있는 파일과 그 TODO 내용을 찾아줘."
+files:
+  app/main.py: |
+    from app.auth.login import login
+
+    def main():
+        login("admin")
+  app/auth/login.py: |
+    MAX_TRIES = None
+
+    def login(user):
+        # TODO(kim): 비밀번호 재시도 횟수 제한 추가
+        return True
+  app/db.py: |
+    def connect():
+        return "sqlite:///app.db"
+checks:
+  answer_contains: ["login.py", "재시도"]
+  max_steps: 6

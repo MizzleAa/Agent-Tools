@@ -1,0 +1,97 @@
+# 에이전트 전역 설정. 상대 경로는 프로젝트 폴더 기준.
+# 폐쇄망 운영을 전제로 외부 서비스 없이 llama.cpp(llama-server) + GGUF 파일만으로 동작한다.
+
+backend:                              # 에이전트가 말을 거는 모델 서버 (OpenAI 호환 API)
+  base_url: http://127.0.0.1:18080/v1 # 이 PC 의 주소면 포트는 runtime.port 를 따라간다
+  api_key: local                      # 로컬 서버는 아무 값이나 OK
+  model: qwen3.5-9b                   # 기본 모델 (아래 models 의 이름). 화면에서 고르면 그쪽이 우선
+  context_length: 16384               # llama-server -c 로도 그대로 전달된다
+  timeout: 300                        # 한 번의 모델 호출 제한(초)
+
+runtime:                              # 관리 서버가 llama-server 를 직접 띄울 때의 설정
+  autostart: true                     # 관리 화면을 켜면 모델 서버도 같이 켠다
+  exe: runtime/llama.cpp/llama-server.exe
+  model_path: models/Qwen3.5-9B-Q4_K_M.gguf   # models 목록에 없는 이름일 때만 쓰인다
+  host: 127.0.0.1
+  port: 18080                         # 8080 은 Docker 등이 자주 써서 피한다. 쓰는 중이면 빈 포트로 자동으로 바꾼다
+  gpu_layers: 999                     # 999 = 전부 GPU. VRAM 이 모자라면 낮춘다
+  flash_attn: true
+  cache_type: q8_0                    # KV 캐시 양자화 → 같은 VRAM 에 더 긴 컨텍스트
+  extra_args: []                      # 예) MoE 모델: ["--n-cpu-moe", "24"]
+
+models:                               # 고를 수 있는 모델. 관리 화면 입력창의 모델 선택에서 바꾸면 모델 서버가 다시 뜬다
+  - name: qwen3-8b
+    file: models/Qwen3-8B-Q4_K_M.gguf
+    note: Qwen3 8B (2025.4) · GPU 에 전부 · 4.7GB
+  - name: qwen3.5-9b
+    file: models/Qwen3.5-9B-Q4_K_M.gguf
+    note: Qwen3.5 9B (2026.3) · GPU 에 전부 · 5.4GB · 8GB GPU 기본 추천
+  - name: qwen3.6-35b-a3b
+    file: models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+    note: Qwen3.6 35B MoE (2026.4) · 전문가는 RAM 에 · 21GB · 가장 똑똑함
+    context_length: 32768             # 전체 40층 중 10층만 full attention 이라 KV 캐시가 작다
+    extra_args: [--n-cpu-moe, "36"]   # 40층 중 36층의 전문가를 RAM 에. VRAM 여유가 있으면 숫자를 줄이면 빨라진다
+
+sampling:                             # Qwen 권장값. 온도 0 은 반복에 빠지기 쉬워 쓰지 않는다.
+  temperature: 0.6
+  top_p: 0.95
+
+workspace: workspace                  # 상대 경로·셸 명령의 기준 폴더
+
+allowed_dirs:                         # 에이전트가 파일 도구로 접근할 수 있는 폴더
+  - path: workspace
+    mode: rw                          # rw = 읽기/쓰기, ro = 읽기 전용
+  # - path: C:/workspace/my-project
+  #   mode: ro
+
+web:
+  search_provider: ddgs               # ddgs = 인터넷 검색(DuckDuckGo, 키 불필요)
+                                      # searxng = 사내 SearXNG 서버 / none = 검색 끔 (폐쇄망)
+  searxng_url: ""                     # 예) http://searxng.intra:8080  (settings.yml 에서 json 포맷 허용 필요)
+  regions: [kr-kr, us-en]             # 한국 + 미국 결과를 같이 검색해 번갈아 섞는다 (wt-wt = 지역 없음)
+  max_results: 8                      # 지역 합계 최대 결과 수
+  fetch_timeout: 15
+  max_fetch_bytes: 3000000
+  allow_private_hosts: []             # fetch_url 은 내부망 주소를 기본 차단한다. 사내 사이트는 여기에 허용
+                                      # 예) ["wiki.intra.company", "10.20.0.0/16"]
+
+apis: []                              # 사내 API (intranet 프로필의 api_get / api_send). 등록된 것만 호출된다
+# 예시 — 주석(#)을 지우고 실제 주소로 바꿔 쓴다. 등록한 호스트는 내부망 차단에서 자동 허용된다.
+#  - name: mes
+#    description: 생산 실행 시스템. 로트·설비·작업지시 조회
+#    base_url: http://mes.intra:8080/api
+#    auth:                             # 토큰은 여기 쓰지 말고 config/secrets.yaml (또는 환경변수) 에 둔다
+#      header: Authorization
+#      secret: MES_TOKEN
+#      prefix: "Bearer "
+#    allow_methods: [GET]              # POST 등을 추가해도 실행할 때마다 승인을 받는다
+#    verify_tls: true                  # 사내 자체 서명 인증서면 false
+#    docs: |                           # 모델이 보고 따라 할 사용법. 구체적일수록 정확해진다
+#      GET /lots/{lot_id}            로트 상세 (상태, 공정, 수량)
+#      GET /lots?line=A1&status=RUN  라인별 진행 중 로트 목록
+#      GET /equipment/{id}/alarms    설비 알람 이력
+
+intranet:                             # 검색 기능이 없는 사내 웹페이지 → 수집해서 search_intranet 으로 검색
+  sources: []
+# 예시
+#    - name: wiki
+#      description: 사내 위키 (공정 매뉴얼, 장비 사용법)
+#      start_urls: [http://wiki.intra/]
+#      include_prefixes: [http://wiki.intra/]   # 이 주소로 시작하는 페이지만 수집
+#      exclude_patterns: [/logout, action=edit, /login]
+#      max_pages: 500
+#      max_depth: 3
+#      # auth: {header: Cookie, secret: WIKI_COOKIE}   # 로그인이 필요한 사이트
+
+policy:                               # run_command 규칙 (개발 규격 '의존성·설치': 프로젝트 로컬만, 폐쇄망 전제)
+  block_global_install: true          # venv 밖 pip, npm -g, dotnet tool -g, winget 등 시스템 전역 설치 막기
+  block_downloads: true               # Invoke-WebRequest, curl, git clone 등 인터넷 다운로드 막기
+  require_env_check: true             # 프로젝트에 설치하기 전에 pip list / npm ls / dotnet --list-sdks 같은 확인 먼저
+
+limits:
+  max_steps: 50                       # 한 번의 실행에서 모델 호출 최대 횟수 (0 = 무제한. 관리 화면에서 실행마다 고를 수 있음)
+  max_seconds: 1800                   # 한 번의 실행 전체 제한(초) (0 = 무제한)
+  tool_output_chars: 4000             # 이보다 긴 도구 출력은 앞/뒤만 모델에게 보여준다
+  command_timeout: 120                # run_command / run_python 최대 실행 시간(초)
+
+data_dir: data                        # 실행 기록, 전체 도구 출력, eval 결과, 로그
