@@ -82,7 +82,8 @@ export function matchChoices(choices: SlashChoice[], query: string): SlashChoice
   if (!q) return choices;
   const hit = (c: SlashChoice) => [c.value, c.label, c.desc ?? ''].some((s) => low(s).includes(q));
   const head = (c: SlashChoice) => low(c.label).startsWith(q) || low(c.value).startsWith(q);
-  const rank = (c: SlashChoice) => (head(c) ? 2 : 0) + (c.current ? 1 : 0);   // 같으면 지금 값이 먼저 (Enter 로 바뀌지 않게)
+  // 같으면 지금 값이 먼저 (Enter 로 바뀌지 않게), 고를 수 없는 값(연결 확인 중 · 로그인 필요 …)은 맨 뒤 — Enter 가 헛돌지 않게
+  const rank = (c: SlashChoice) => (c.disabled ? -4 : 0) + (head(c) ? 2 : 0) + (c.current ? 1 : 0);
   return choices.filter(hit).sort((a, b) => rank(b) - rank(a));
 }
 

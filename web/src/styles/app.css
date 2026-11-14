@@ -73,7 +73,7 @@ svg { display: block; flex: none; }
 }
 .sb-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 12px; }
 .brand { font-family: var(--font-reading); font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
-.sb-close { display: none; }
+.sidebar .sb-close { display: none; }   /* 좁은 화면(서랍)에서만 — .icon-btn 의 display 보다 앞서게 */
 .new-chat {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px;
   background: none; cursor: pointer; font-weight: 600; color: var(--accent); text-align: left;
@@ -217,6 +217,7 @@ pre.block {
 .md ul, .md ol { margin: 0 0 .85em; padding-left: 1.5em; }
 .md li { margin: .2em 0; }
 .md li.sub { margin-left: 1.2em; }
+.md li > ol, .md li > ul { margin: .3em 0 .3em; }   /* 하위 목록 (번호는 1 부터 따로) */
 .md blockquote { margin: 0 0 .85em; padding: 2px 0 2px 14px; border-left: 3px solid var(--border-strong); color: var(--text-2); }
 .md hr { border: 0; border-top: 1px solid var(--border); margin: 1.2em 0; }
 .md a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
@@ -575,7 +576,7 @@ details.wf-node[open] > summary { border-bottom: 1px solid var(--border); }
   .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 20; transform: translateX(-100%); transition: transform .2s; box-shadow: var(--shadow); }
   .app.sb-open .sidebar { transform: none; }
   .app.sb-open .scrim { display: block; position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, .25); }
-  .sb-close { display: grid; }
+  .sidebar .sb-close { display: grid; }
   .topbar { display: flex; }
   .thread { padding: 16px 16px 8px; }
   .composer-wrap { padding: 0 16px 12px; }
@@ -684,6 +685,8 @@ a.mini-btn { text-decoration: none; }
   border-radius: 6px; cursor: pointer; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .explorer-crumbs .crumb:hover { background: var(--hover); }
 .explorer-crumbs .crumb-wrap { display: inline-flex; align-items: center; gap: 2px; }
+.explorer-abs { padding: 4px 14px 6px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11.5px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: rtl; text-align: left; }   /* 긴 경로는 끝(지금 폴더)이 보이게 */
 .explorer-tools { display: flex; gap: 6px; align-items: center; padding: 8px 12px 4px; flex-wrap: wrap; }
 .explorer-tools .files-filter { flex: 1; min-width: 120px; margin: 0; }
 .explorer-count { padding: 0 12px 6px; }

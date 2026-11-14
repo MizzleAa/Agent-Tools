@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import Field
 
-from agent import documents, imaging, locations
+from agent import accounts, documents, imaging, locations
 from agent.safety import Sandbox, SandboxError
 from server import deps
 from server.api.common import ERRORS, ApiModel, Ok
@@ -100,8 +100,19 @@ def _sandbox() -> Sandbox:
 
 
 def _roots() -> list[LocationInfo]:
-    s = deps.view_settings(deps.user())
-    out = [LocationInfo(id="workspace", kind="workspace", label="작업 폴더", path=str(s.workspace_path), writable=True)]
+    """로그인 사용 모드: 맨 위에 '내 작업 폴더'(workspace/users/<아이디> — 내 대화 폴더가 생기는 곳).
+    관리자는 그 아래에 '작업 폴더 전체'(모든 사용자 · 로그인 전 폴더)를 더 본다. 혼자 쓰기는 작업 폴더 하나."""
+    who = deps.user()
+    s = deps.view_settings(who)
+    whole = str(s.workspace_path)
+    if who is None or not accounts.load_access().login_enabled:
+        out = [LocationInfo(id="workspace", kind="workspace", label="작업 폴더", path=whole, writable=True)]
+    elif accounts.is_admin(who):
+        mine = str(deps.settings_for(who).workspace_path)
+        out = [LocationInfo(id="mine", kind="workspace", label="내 작업 폴더", path=mine, writable=True),
+               LocationInfo(id="workspace", kind="workspace", label="작업 폴더 전체 (모든 사용자)", path=whole, writable=True)]
+    else:
+        out = [LocationInfo(id="workspace", kind="workspace", label="내 작업 폴더", path=whole, writable=True)]
     for e in locations.entries():
         out.append(LocationInfo(id=e["id"], kind="share", label=e["path"], path=e["path"], added=e["added"],
                                 has_account=e["has_account"]))
@@ -164,7 +175,7 @@ def add_location(body: ShareAdd) -> LocationInfo:
 
 @router.delete("/locations/{loc_id}", response_model=Ok, summary="공유 위치를 허용 목록에서 지우기 (저장한 계정도 지운다)")
 def remove_location(loc_id: str) -> Ok:
-    if loc_id == "workspace":
+    if loc_id in ("workspace", "mine"):
         raise HTTPException(400, "작업 폴더는 지울 수 없습니다")
     if not locations.remove(loc_id):
         raise HTTPException(404, "허용된 위치가 아닙니다")

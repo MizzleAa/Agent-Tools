@@ -48,6 +48,8 @@ describe('slash commands', () => {
     expect(v?.stage === 'choice' && v.items.map((c) => c.value)).toEqual(['coder', 'reviewer']);
     const models = matchChoices([{ value: 'local:qwen3-8b', label: 'qwen3-8b' }, { value: 'local:qwen3.5-9b', label: 'qwen3.5-9b', current: true }], 'qwen');
     expect(models[0].value).toBe('local:qwen3.5-9b');   // 여럿이 맞으면 지금 값이 먼저 — Enter 로 모델 서버를 다시 띄우지 않게
+    const cli = matchChoices([{ value: 'gm:', label: '⌘ Gemini (로그인 필요)', disabled: true }, { value: 'cc:', label: '⌘ Claude Code' }], '⌘');
+    expect(cli.map((c) => c.value)).toEqual(['cc:', 'gm:']);   // 고를 수 없는 값은 뒤로
     expect(slashView('/compact 짧게', all)).toMatchObject({ stage: 'hint', command: { name: 'compact', hint: '<instructions>' } });
   });
 

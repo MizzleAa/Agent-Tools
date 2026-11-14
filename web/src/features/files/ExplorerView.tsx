@@ -21,7 +21,7 @@ const fmtSize = (n: number) => (n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 10
 const join = (a: string, b: string) => (a ? `${a}/${b}` : b);
 // 긴 공유 경로(\\서버\공유\…\폴더)는 마지막 폴더 이름으로 부르고, 전체 경로는 아래에 작게 (끝이 보이게) 둔다
 const tail = (p: string) => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
-const locName = (l: Schemas['LocationInfo']) => (l.kind === 'workspace' ? '작업 폴더' : tail(l.label));
+const locName = (l: Schemas['LocationInfo']) => (l.kind === 'workspace' ? l.label : tail(l.label));   // 내 작업 폴더 · 작업 폴더 전체 (서버가 정함)
 const parent = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
 
 export function ExplorerView() {
@@ -66,11 +66,11 @@ export function ExplorerView() {
               <button key={l.id} type="button" className={`list-item${l.id === loc ? ' active' : ''}`} title={l.path}
                 onClick={() => navigate(`/explorer/${l.id}`)}>
                 <span className="list-title">{locName(l)}</span>
-                {l.kind !== 'workspace' && <span className="muted small explorer-locpath"><bdi>{l.path}</bdi></span>}
+                <span className="muted small explorer-locpath"><bdi>{l.path}</bdi></span>
                 <span className="muted small">{l.kind === 'workspace' ? '읽기·쓰기' : `공유 · 읽기 전용${l.has_account ? ' · 계정 있음' : ''}`}</span>
               </button>
             ))}
-            {locs && locs.length === 1 && <div className="muted small explorer-hint">허용한 공유 위치가 아직 없습니다. 채팅에 공유 경로를 주면 처음 한 번 허용을 묻고, 아래에서 직접 더할 수도 있습니다.</div>}
+            {locs && !locs.some((l) => l.kind === 'share') && <div className="muted small explorer-hint">허용한 공유 위치가 아직 없습니다. 채팅에 공유 경로를 주면 처음 한 번 허용을 묻고, 아래에서 직접 더할 수도 있습니다.</div>}
           </div>
           <div className="explorer-add">
             <input type="text" placeholder="\\서버\공유\폴더 · Z:\폴더" value={adding} onChange={(e) => setAdding(e.target.value)}
@@ -131,6 +131,7 @@ function FolderPane({ loc, folder, selected, onFolder, onFile, onWork }: {
             <button type="button" className="crumb" onClick={() => onFolder(crumbs.slice(0, i + 1).join('/'))}>{c}</button></span>
         ))}
       </div>
+      {listing && <div className="muted small explorer-abs" title="지금 보고 있는 실제 폴더 (이 PC 기준)"><bdi>{listing.abs_path}</bdi></div>}
       <div className="explorer-tools">
         <input type="text" className="files-filter" placeholder="이름으로 찾기" value={q} onChange={(e) => setQ(e.target.value)} />
         {listing && <CopyButton text={listing.abs_path} label="경로 복사" />}

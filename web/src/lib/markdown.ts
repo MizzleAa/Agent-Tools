@@ -14,8 +14,21 @@ export type Block =
   | { t: 'hr' }
   | { t: 'table'; header: string[]; rows: string[][] }
   | { t: 'quote'; blocks: Block[] }
-  | { t: 'list'; ordered: boolean; start: number; items: { sub: boolean; lines: string[] }[] }
+  | { t: 'list'; ordered: boolean; start: number; items: ListItem[] }
   | { t: 'p'; lines: string[] };
+
+/** 목록 항목. sub = 들여쓴 하위 항목 (ordered · num 은 그 항목의 표시 — '1.' 이면 번호 목록의 1) */
+export interface ListItem { sub: boolean; lines: string[]; ordered?: boolean; num?: number }
+
+/** 하위 항목을 바로 위 항목 아래로 묶는다 — 번호 목록 안의 하위 번호 목록이 바깥 번호를 이어받지 않게 (1. → 1. 2. 3.) */
+export function nestItems(items: ListItem[]): { item: ListItem; subs: ListItem[] }[] {
+  const out: { item: ListItem; subs: ListItem[] }[] = [];
+  for (const it of items) {
+    if (it.sub && out.length && !out[out.length - 1].item.sub) out[out.length - 1].subs.push(it);
+    else out.push({ item: it, subs: [] });   // 목록이 하위 항목으로 시작하면 그대로 둔다
+  }
+  return out;
+}
 
 const INLINE = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(\[[^\]\n]+\]\((https?:\/\/[^)\s]+)\))|(https?:\/\/[^\s<>()]*[^\s<>().,!?;:'"])|(\*[^*\s][^*\n]*\*)/g;
 const LIST = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
@@ -80,10 +93,10 @@ export function parseMarkdown(src: string): Block[] {
     const first = line.match(LIST);
     if (first) {
       const ordered = /\d/.test(first[2]);
-      const items: { sub: boolean; lines: string[] }[] = [];
+      const items: ListItem[] = [];
       while (i < lines.length) {
         const m = lines[i].match(LIST);
-        if (m) { items.push({ sub: m[1].length >= 2, lines: [m[3]] }); i++; continue; }
+        if (m) { items.push({ sub: m[1].length >= 2, lines: [m[3]], ordered: /\d/.test(m[2]), num: parseInt(m[2], 10) || 1 }); i++; continue; }
         if (lines[i].trim() && /^\s{2,}/.test(lines[i]) && items.length) {   // 들여쓴 이어지는 줄
           items[items.length - 1].lines.push(lines[i].trim());
           i++;

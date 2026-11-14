@@ -74,6 +74,38 @@ export const bytes = (n?: number | null) => (n == null ? '' : n < 1024 ? `${n} B
 export const duration = (ms: number) => (ms < 1000 ? `${ms}ms` : ms < 60000 ? `${(ms / 1000).toFixed(1)}초` : `${Math.floor(ms / 60000)}분 ${Math.round((ms % 60000) / 1000)}초`);
 export const cost = (usd?: number | null) => (usd == null ? '' : usd < 0.01 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(3)}`);
 
+/** 응답 하나에 쓴 토큰 — 입력은 새 입력 + 캐시 읽기 · 쓰기 */
+export function turnTokens(usage?: Record<string, number> | null): { input: number; output: number } | null {
+  const n = (k: string) => Number(usage?.[k] ?? 0) || 0;
+  const input = n('input_tokens') + n('cache_read_input_tokens') + n('cache_creation_input_tokens');
+  const output = n('output_tokens');
+  return input || output ? { input, output } : null;
+}
+const kTok = (n: number) => (n >= 10000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+
+/** 토큰마다 실제로 청구되는 로그인인지. CLI 가 세션 시작 때 알려 주는 apiKeySource 가 먼저 ('none' = claude.ai 구독 로그인),
+ *  없으면 로그인 상태 (claude.ai · 구독 요금제 = 구독, API 키 · Bedrock/Vertex = 청구). 모르면 청구로 보지 않는다 (추정으로 표시) */
+export function billedPerToken(apiKeySource?: string | null, auth?: { authMethod?: string | null; apiProvider?: string | null; subscriptionType?: string | null } | null): boolean {
+  if (apiKeySource) return apiKeySource !== 'none';
+  if (!auth || auth.subscriptionType || auth.authMethod === 'claude.ai') return false;
+  return /api/i.test(auth.authMethod ?? '') || Boolean(auth.apiProvider && auth.apiProvider !== 'firstParty');
+}
+
+/** 응답 결과 옆 사용량: 청구되는 로그인이면 $ (실제 요금), 구독이면 토큰만 — $ 는 마우스를 올리면 'API 환산 추정'으로 */
+export function usageText(r: { turn_cost_usd?: number | null; total_cost_usd?: number | null; usage?: Record<string, number> | null }, billed: boolean,
+  account = '구독 계정'): { text: string; title: string } {
+  const usd = r.turn_cost_usd ?? r.total_cost_usd;
+  const tok = turnTokens(r.usage);
+  const tokTitle = tok ? `입력 ${tok.input.toLocaleString()} · 출력 ${tok.output.toLocaleString()} 토큰` : '';
+  if (billed) {
+    return { text: usd != null ? cost(usd) : tok ? `토큰 ${kTok(tok.input + tok.output)}` : '',
+      title: [usd != null ? `API 요금 ${cost(usd)} — API 키 로그인이라 실제로 청구됩니다` : '', tokTitle].filter(Boolean).join('\n') };
+  }
+  return { text: tok ? `토큰 ${kTok(tok.input + tok.output)}` : '',
+    title: [`${account} — 토큰마다 청구되지 않고 그 계정의 사용 한도에서 깎입니다`, tokTitle,
+      usd != null ? `API 로 썼다면 약 ${cost(usd)} (CLI 의 환산 추정 — 실제 청구 아님)` : ''].filter(Boolean).join('\n') };
+}
+
 export function shortPath(p: string, base?: string | null): string {
   if (!p || !base) return p;
   const a = p.replace(/\//g, '\\').toLowerCase();

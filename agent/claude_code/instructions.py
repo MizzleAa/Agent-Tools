@@ -30,7 +30,9 @@ TOOL_NOTES = {
               "fetch_url→WebFetch · web_search→WebSearch." + _TAIL,
     "codex": _HEAD + "지침에 나오는 도구 이름은 이 서버 에이전트 기준이다 — Codex 에서는 같은 일을 셸 명령(PowerShell)과 apply_patch 로 한다: "
              "read_file/list_dir/search_files→읽기 명령(Get-Content · Get-ChildItem · rg) · write_file→apply_patch · "
-             "run_command/run_python→셸 명령 · fetch_url/web_search→웹 검색 도구(있으면)." + _TAIL,
+             "run_command/run_python→셸 명령 · fetch_url/web_search→웹 검색 도구(있으면). "
+             "이 PC 의 셸은 Windows PowerShell 5.1 이라 UTF-8 파일(한국어)은 Get-Content -Encoding UTF8 로 읽는다 "
+             "(빼면 글자가 깨져 다시 읽어야 한다)." + _TAIL,
     "gemini": _HEAD + "지침에 나오는 도구 이름은 이 서버 에이전트 기준이다 — 같은 일을 하는 Gemini CLI 도구로 바꿔 쓴다: "
               "read_file→read_file · write_file→write_file/replace · list_dir/search_files→list_directory/glob/search_file_content · "
               "run_command/run_python→run_shell_command(PowerShell) · fetch_url→web_fetch · web_search→google_web_search." + _TAIL,

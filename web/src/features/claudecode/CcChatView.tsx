@@ -20,7 +20,7 @@ import { InstructionsView } from './InstructionsView';
 import { connectEvents, disconnectEvents, importExternal, interrupt, loadExternal, openSession, patchSession, sendTo, startAuto, startProcess,
   stopProcess, terminateOrphan } from './actions';
 import { CcThread } from './CcThread';
-import { bytes, cliChoice, cost, duration, ENGINE_LABEL, parseCli, permissionModes, PROCESS_LABEL, timeAgo } from './lib';
+import { billedPerToken, bytes, cliChoice, duration, ENGINE_LABEL, parseCli, permissionModes, PROCESS_LABEL, timeAgo, usageText } from './lib';
 import { PermissionPanel } from './PermissionPanel';
 import { chatOf, useCc } from './store';
 
@@ -143,6 +143,10 @@ export function CcChatView({ sessionId }: { sessionId: string | null }) {
   const orphan = session?.process?.status === 'ORPHANED' ? session.process : null;
   const procStatus = session?.process?.status ?? (proc && !['EXITED', 'CRASHED', 'LOST'].includes(proc.status) ? proc.status : null);
   const result = chat.lastResult;
+  // 사용량: 회사 Team 같은 구독 로그인이면 토큰만 ($ 는 CLI 가 API 정가로 환산한 추정이라 실제 청구가 아니다). API 키 로그인일 때만 $
+  const plan = st?.auth?.subscriptionType;
+  const spent = result ? usageText(result, engine === 'claude' && billedPerToken(chat.init?.api_key_source, st?.auth),
+    engine === 'claude' ? `구독 계정${plan ? ` (${plan}${st?.auth?.orgName ? ` · ${st.auth.orgName}` : ''})` : ''}` : `${label} 계정 로그인`) : null;
   const cwd = session?.working_directory ?? base;
 
   return (
@@ -273,7 +277,7 @@ export function CcChatView({ sessionId }: { sessionId: string | null }) {
             <span className="spacer" />
             <span className="muted small cc-result">
               {running ? (chat.turn?.statusText === 'retrying' ? <span className="warn-text">API 재시도 {chat.turn.retry?.attempt}/{chat.turn.retry?.max_retries}</span> : chat.pending.length ? '승인 대기' : '')
-                : result ? `${result.interrupted ? '중단됨' : result.is_error ? '오류' : '완료'} · ${duration(result.duration_ms)}${(result.turn_cost_usd ?? result.total_cost_usd) != null ? ` · ${cost(result.turn_cost_usd ?? result.total_cost_usd)}` : ''}` : ''}
+                : result ? <span title={spent?.title}>{`${result.interrupted ? '중단됨' : result.is_error ? '오류' : '완료'} · ${duration(result.duration_ms)}${spent?.text ? ` · ${spent.text}` : ''}`}</span> : ''}
             </span>
             <button type="button" className={`send-btn${running ? ' running' : ''}`} disabled={!running && (Boolean(problem) || sending)}
               title={running ? '중단 (Esc)' : '보내기 (Enter)'} aria-label={running ? '중단' : '보내기'}

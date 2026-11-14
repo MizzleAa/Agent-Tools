@@ -198,6 +198,17 @@ def test_runs_and_folders_are_separated(env, admin, settings):
     assert b.post("/api/v1/runs", json={"task": "이어서", "parent_run_id": rid}, headers=H).status_code == 404
     assert b.get("/api/v1/workspace/folders").json() == []
     assert len(a.get("/api/v1/workspace/folders").json()) == 1
+    # 파일 탐색기: 사용자는 '내 작업 폴더'만, 관리자는 '내 작업 폴더'(맨 위) + '작업 폴더 전체'
+    locs_a = [x for x in a.get("/api/v1/locations").json() if x["kind"] == "workspace"]
+    assert [(x["id"], x["label"], x["path"]) for x in locs_a] == [("workspace", "내 작업 폴더", str(ws_a))]
+    assert [e["name"] for e in a.get("/api/v1/locations/workspace/list").json()["entries"] if e["dir"]] != []
+    assert b.get("/api/v1/locations/workspace/list", params={"path": "../user_a"}).status_code == 403
+    locs_admin = [x for x in admin.get("/api/v1/locations").json() if x["kind"] == "workspace"]
+    assert [x["id"] for x in locs_admin] == ["mine", "workspace"]
+    assert locs_admin[0]["path"] == str(settings.workspace_path / "users" / "boss")
+    assert locs_admin[1]["path"] == str(settings.workspace_path)
+    assert admin.get("/api/v1/locations/mine/list").status_code == 200
+    assert admin.delete("/api/v1/locations/mine", headers=H).status_code == 400
     # 관리자는 전부 본다 (기록 보기)
     assert admin.get(f"/api/v1/runs/{rid}").status_code == 200
     assert [r["id"] for r in admin.get(f"/api/v1/threads/{rid}").json()] == [rid]

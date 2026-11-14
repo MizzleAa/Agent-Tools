@@ -1,6 +1,6 @@
 import { Fragment, useMemo } from 'react';
 import { tokenize } from '@/features/files/highlight';
-import { type Block, type Inline, parseInline, parseMarkdown } from '@/lib/markdown';
+import { type Block, type Inline, type ListItem, nestItems, parseInline, parseMarkdown } from '@/lib/markdown';
 import { CopyButton } from './CopyButton';
 
 function Inlines({ text }: { text: string }) {
@@ -50,11 +50,16 @@ function BlockNode({ block }: { block: Block }) {
       );
     case 'quote': return <blockquote>{block.blocks.map((b, i) => <BlockNode key={i} block={b} />)}</blockquote>;
     case 'list': {
-      const items = block.items.map((it, i) => (
-        <li key={i} className={it.sub ? 'sub' : undefined}>
-          {it.lines.map((l, k) => <Fragment key={k}>{k > 0 && <br />}<Inlines text={l} /></Fragment>)}
-        </li>
-      ));
+      const body = (it: ListItem) => it.lines.map((l, k) => <Fragment key={k}>{k > 0 && <br />}<Inlines text={l} /></Fragment>);
+      const items = nestItems(block.items).map(({ item, subs }, i) => {
+        const inner = subs.map((s, j) => <li key={j}>{body(s)}</li>);
+        return (
+          <li key={i} className={item.sub ? 'sub' : undefined}>
+            {body(item)}
+            {subs.length > 0 && (subs[0].ordered ? <ol start={subs[0].num}>{inner}</ol> : <ul>{inner}</ul>)}
+          </li>
+        );
+      });
       return block.ordered ? <ol start={block.start}>{items}</ol> : <ul>{items}</ul>;
     }
     case 'p':
