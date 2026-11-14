@@ -25,16 +25,16 @@ jobs:
       PYTHONUTF8: '1'
       PYTHONIOENCODING: utf-8
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: requirements*.txt
       - name: 패키지 설치
-        run: python -m pip install -r requirements.txt -r requirements-claude-code.txt
+        run: python -m pip install -r requirements.txt -r requirements-claude-code.txt pytest-github-actions-annotate-failures
       - name: pytest
-        run: python -m pytest -q -p no:cacheprovider
+        run: python -m pytest -q -p no:cacheprovider -rf   # 실패한 테스트는 PR · 실행 화면에 줄 단위 표시(annotate-failures)
 
   web:
     name: 화면 (타입 · vitest · 빌드 · API 계약)
@@ -44,8 +44,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
