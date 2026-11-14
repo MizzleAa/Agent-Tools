@@ -64,6 +64,20 @@ class Runtime(BaseModel):
     extra_args: list[str] = Field(default_factory=list)
 
 
+class Embedding(BaseModel):
+    """문서 Q&A 의 의미 검색 (agent/embedding.py). llama-server 를 --embedding 으로 하나 더 띄운다 (처음 쓸 때).
+    모델 파일이 없거나 꺼 두면 낱말 검색(FTS5)만 한다."""
+    enabled: bool = True
+    model_path: str = "models/Qwen3-Embedding-0.6B-Q8_0.gguf"
+    host: str = "127.0.0.1"
+    port: int = 18081
+    gpu_layers: int = 0              # 0 = CPU — 채팅 모델과 VRAM 을 다투지 않는다 (0.6B 라 CPU 로도 충분)
+    ctx: int = 4096                  # 한 조각(1200자 안팎)이 넉넉히 들어가게
+    url: str = ""                    # 다른 곳에 이미 떠 있는 임베딩 서버를 쓸 때 (비우면 직접 띄운다)
+    max_distance: float = 0.7        # 의미로만 찾은 조각의 코사인 거리 상한 (관계없는 문서까지 늘 나오지 않게)
+    query_instruction: str = "Given a question, retrieve passages from the documents that answer the question"
+
+
 class ModelPreset(BaseModel):
     """관리 화면에서 고를 수 있는 모델 하나. 고르면 runtime/backend 설정을 이 값으로 바꿔 llama-server 를 다시 띄운다."""
     name: str                          # llama-server --alias 겸 화면에 보이는 이름
@@ -183,6 +197,7 @@ class Limits(BaseModel):
 class Settings(BaseModel):
     backend: Backend = Field(default_factory=Backend)
     runtime: Runtime = Field(default_factory=Runtime)
+    embedding: Embedding = Field(default_factory=Embedding)
     models: list[ModelPreset] = Field(default_factory=list)
     sampling: Sampling = Field(default_factory=Sampling)
     workspace: str = "workspace"
