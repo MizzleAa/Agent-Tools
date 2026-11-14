@@ -52,6 +52,22 @@ def _default_prompts(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _same_pc_everywhere(tmp_path_factory, monkeypatch):
+    """PC 마다 다른 것을 테스트에서 맞춘다 (이 PC · CI · 다른 개발 PC 에서 같은 결과).
+    - 사용자 폴더(USERPROFILE · HOME)는 임시 폴더: 'AppData 는 열 수 없다' 규칙이 임시 폴더 위치(보통 AppData\\Local\\Temp)에
+      걸리지 않게, 진짜 ~/.claude 같은 것도 읽지 않게.
+    - 셸은 배포 대상과 같은 Windows PowerShell 5.1: pwsh 7 이 깔린 PC(GitHub 러너 등)에서도 5.1 호환 변환 길을 시험한다."""
+    home = tmp_path_factory.mktemp("home")
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("HOME", str(home))
+    from agent import loop
+    from agent.tools import shell
+    monkeypatch.setattr(shell, "SHELL", "powershell")
+    monkeypatch.setattr(shell, "SHELL_NAME", "Windows PowerShell 5.1")
+    monkeypatch.setattr(loop, "SHELL_NAME", "Windows PowerShell 5.1")
+
+
+@pytest.fixture(autouse=True)
 def _isolated_accounts(tmp_path_factory, monkeypatch):
     """접속 설정(config/access.yaml)·사용자별 계정·계정 DB·실행 기록 DB·하네스는 테스트마다 비어 있는 것으로
     (기본 = 혼자 쓰기, 로그인 없음). 진짜 config/ · data/ · harness/ 는 어떤 테스트도 건드리지 않는다."""
