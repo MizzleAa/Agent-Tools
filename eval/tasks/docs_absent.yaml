@@ -1,0 +1,15 @@
+id: docs_absent
+profile: docs
+approve: none
+task: "매뉴얼 폴더의 문서로 답해줘: X100 의 소비 전력은 몇 kW 야?"
+files:
+  매뉴얼/x100_faq.md: |
+    # X100 자주 묻는 질문
+    ## 보증
+    본체 24개월, 소모품 6개월.
+    ## 권장 운전 조건
+    온도 18~26℃, 습도 40~60%.
+checks:
+  answer_any: ["문서에 없", "찾을 수 없", "찾지 못", "나와 있지 않", "없습니다", "확인되지 않"]
+  tools_used: [search_documents]
+  max_steps: 6

@@ -1,0 +1,16 @@
+id: docs_answer
+profile: docs
+approve: none
+task: "매뉴얼 폴더의 문서로 답해줘: 노즐은 언제 바꿔야 해? 근거 파일도 알려줘."
+files:
+  매뉴얼/x100_faq.md: |
+    # X100 자주 묻는 질문
+    ## 보증
+    본체 24개월, 소모품 6개월.
+    ## 분사구(노즐) 교체 주기
+    연속 운전 800시간마다 갈아끼운다. E-104 가 한 주에 3번 넘게 뜨면 바로 교체한다.
+  매뉴얼/식당.txt: "점심 메뉴: 비빔밥\n"
+checks:
+  answer_contains: ["800", "x100_faq.md"]
+  tools_used: [index_documents, search_documents]
+  max_steps: 6

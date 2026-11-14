@@ -1,0 +1,21 @@
+id: fix_bug
+profile: coder
+approve: all   # eval 전용 임시 폴더에서만 실행된다
+task: "calc.py 의 average 함수가 틀린 값을 낸다. 고치고 test_calc.py 를 python 으로 실행해서 통과하는지 확인해줘."
+files:
+  calc.py: |
+    def average(xs):
+        if not xs:
+            return 0
+        return sum(xs) / (len(xs) + 1)
+  test_calc.py: |
+    from calc import average
+
+    assert average([2, 4, 6]) == 4
+    assert average([]) == 0
+    print("OK")
+checks:
+  file_lacks:
+    calc.py: ["+ 1"]
+  answer_any: ["OK", "통과"]
+  max_steps: 8

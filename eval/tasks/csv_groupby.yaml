@@ -1,0 +1,18 @@
+id: csv_groupby
+profile: coder
+approve: all   # eval 전용 임시 폴더에서만 실행된다
+task: "data/orders.csv 의 지역(region)별 금액(amount) 합계를 run_python 으로 계산해서 큰 순서대로 알려줘."
+files:
+  data/orders.csv: |
+    id,region,amount
+    1,서울,120000
+    2,부산,98000
+    3,서울,143000
+    4,대구,76000
+    5,부산,110000
+    6,서울,57000
+    7,대구,30000
+checks:
+  answer_contains: ["320000", "208000", "106000"]
+  tools_used: [run_python]
+  max_steps: 6

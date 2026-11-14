@@ -1,0 +1,14 @@
+id: md_table
+profile: general
+approve: writes
+task: "team.txt 의 사람들을 이름 · 부서 · 내선번호 세 열의 마크다운 표로 team.md 에 저장해줘."
+files:
+  team.txt: |
+    김하늘 / 개발팀 / 2041
+    이바다 / 품질팀 / 2177
+    박산 / 영업팀 / 2309
+checks:
+  file_contains:
+    team.md: ["|", "김하늘", "품질팀", "2309"]
+  tools_used: [write_file]
+  max_steps: 5

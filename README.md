@@ -528,6 +528,9 @@ GitHub Actions (`.github/workflows/`). 모델 · llama.cpp · 진짜 CLI 없이 
 - [x] 6 웹 검색(한국+미국) + 페이지 본문 읽기, 내부망 차단·허용 목록, `researcher` 프로필
 - [x] 6+ 사내 사이트 수집·검색(FTS5), 사내 REST API 호출(`api_get`/`api_send`), `intranet` 프로필
 - [x] 7 문서 Q&A (sqlite-vec + FTS5, Qwen3-Embedding) — `docs` 용도 · `index_documents` · `search_documents`
-- [ ] 8 프로필 편집 화면
+- [x] 8 프로필 편집 화면 — 설정 · 프롬프트 › 용도 (도구 · 파라미터 · 미리보기 · 변경 기록)
 - [x] 9 예약 실행 — 대화 화면 `/예약 <요청>` · 사이드바 '예약' · `/api/v1/schedules`
-- [ ] 10 더 큰 모델 (MoE) + eval 15개
+- [x] 10 더 큰 모델 (MoE: `qwen3.6-35b-a3b`, `--n-cpu-moe`) + eval 15개 — 검색 · JSON · 로그 · 설정 비교 · CSV · 버그 고치기 · 스크립트 · 표 · 문서 Q&A
+  - 기준 점수 (2026-11-14, `qwen3.5-9b`): **13/15**. 못 한 것 `fix_bug` · `write_script` — `coder` 용도가 작은 요청에도 개발 규격대로
+    프로젝트 구조(pyproject · venv · tests)를 만들다 스텝 한도(50)에 걸린다 → 작은 요청에는 규격을 가볍게 적용하도록 용도 · 규격을 손볼 거리.
+    과제 파일이 바른지는 CI 가 본다 (`tests/test_eval_tasks.py`), 모델로 돌리는 것은 이 PC 에서 `eval\run_eval.py`.

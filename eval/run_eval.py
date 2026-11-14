@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 import time
@@ -37,6 +38,7 @@ class Checks(BaseModel):
     answer_contains: list[str] = Field(default_factory=list)  # 모두 포함
     answer_any: list[str] = Field(default_factory=list)       # 하나 이상 포함
     file_contains: dict[str, list[str]] = Field(default_factory=dict)
+    file_lacks: dict[str, list[str]] = Field(default_factory=dict)      # 파일에 없어야 하는 글 (고친 버그 등)
     tools_used: list[str] = Field(default_factory=list)
     max_steps: int | None = None
 
@@ -58,7 +60,8 @@ def approver_for(level: str):
 
 
 def grade(task: Task, final: Final, work: Path) -> list[str]:
-    c, answer, failures = task.checks, final.answer.lower(), []
+    # 숫자의 천 단위 쉼표는 떼고 본다 ('320,000원' 도 '320000' 으로 맞게)
+    c, answer, failures = task.checks, re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", final.answer.lower()), []
     if final.status != "done":
         failures.append(f"status={final.status}")
     failures += [f"답변에 '{s}' 없음" for s in c.answer_contains if s.lower() not in answer]
@@ -71,6 +74,10 @@ def grade(task: Task, final: Final, work: Path) -> list[str]:
             continue
         text = f.read_text(encoding="utf-8", errors="replace").lower()
         failures += [f"{rel} 에 '{s}' 없음" for s in needles if s.lower() not in text]
+    for rel, bad in c.file_lacks.items():
+        f = work / rel
+        text = f.read_text(encoding="utf-8", errors="replace").lower() if f.exists() else ""
+        failures += [f"{rel} 에 아직 '{s}' 있음" for s in bad if s.lower() in text]
     failures += [f"도구 미사용: {t}" for t in c.tools_used if t not in final.tools_used]
     if c.max_steps and final.steps > c.max_steps:
         failures.append(f"스텝 초과 {final.steps}>{c.max_steps}")

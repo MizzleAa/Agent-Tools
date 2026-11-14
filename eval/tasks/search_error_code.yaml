@@ -1,0 +1,21 @@
+id: search_error_code
+profile: general
+approve: none
+task: "에러 코드 E-221 이 적힌 파일을 모두 찾아서 파일 이름과 그 줄의 내용을 알려줘."
+files:
+  manual/x100.md: |
+    # X100 설명서
+    ## 에러
+    - E-104: 노즐 과열
+    - E-221: 코팅액 공급 압력 낮음
+  manual/x200.md: |
+    # X200 설명서
+    - E-310: 팬 정지
+  logs/2026-11-13.log: |
+    09:12 INFO 시작
+    10:40 WARN E-221 압력 0.8bar
+    11:02 INFO 정상
+checks:
+  answer_contains: ["x100.md", "2026-11-13.log"]
+  tools_used: [search_files]
+  max_steps: 6

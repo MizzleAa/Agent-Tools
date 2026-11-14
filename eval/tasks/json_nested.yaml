@@ -1,0 +1,18 @@
+id: json_nested
+profile: general
+approve: none
+task: "config/app.json 에서 데이터베이스 복제본(replica)의 host 와 port 를 알려줘."
+files:
+  config/app.json: |
+    {
+      "name": "shop",
+      "database": {
+        "primary": {"host": "db-main.internal", "port": 5432},
+        "replica": {"host": "db-ro-7.internal", "port": 6543}
+      },
+      "cache": {"host": "redis.internal", "port": 6379}
+    }
+checks:
+  answer_contains: ["db-ro-7.internal", "6543"]
+  tools_used: [read_file]
+  max_steps: 4

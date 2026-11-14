@@ -1,0 +1,18 @@
+id: log_error_count
+profile: general
+approve: none
+task: "logs/app.log 에서 ERROR 줄이 몇 개인지 세고, 가장 많이 나온 에러 메시지가 무엇인지 알려줘."
+files:
+  logs/app.log: |
+    2026-11-13 09:00:01 INFO 서버 시작
+    2026-11-13 09:05:12 ERROR DB 연결 시간 초과
+    2026-11-13 09:05:40 INFO 재시도
+    2026-11-13 09:06:02 ERROR DB 연결 시간 초과
+    2026-11-13 09:30:15 WARN 느린 요청 2.3s
+    2026-11-13 10:01:09 ERROR 디스크 공간 부족
+    2026-11-13 10:20:33 ERROR DB 연결 시간 초과
+    2026-11-13 11:00:00 INFO 정상
+checks:
+  answer_any: ["4개", "4 개", "네 개", "4건", "4줄", "4 줄", " 4"]
+  answer_contains: ["DB 연결 시간 초과"]
+  max_steps: 5

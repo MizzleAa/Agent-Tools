@@ -1,0 +1,9 @@
+id: write_script
+profile: coder
+approve: all   # eval 전용 임시 폴더에서만 실행된다
+task: "1부터 100까지 3의 배수이면서 5의 배수가 아닌 수의 합을 출력하는 sum3.py 를 만들고 실행해서 결과를 알려줘."
+checks:
+  file_contains:
+    sum3.py: ["print"]
+  answer_contains: ["1368"]
+  max_steps: 6

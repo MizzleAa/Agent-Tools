@@ -1,0 +1,18 @@
+id: config_diff
+profile: general
+approve: none
+task: "env/dev.env 와 env/prod.env 를 비교해서 값이 다른 항목과 한쪽에만 있는 항목을 알려줘."
+files:
+  env/dev.env: |
+    APP_PORT=8080
+    LOG_LEVEL=debug
+    DB_POOL=5
+    FEATURE_X=on
+  env/prod.env: |
+    APP_PORT=8080
+    LOG_LEVEL=warn
+    DB_POOL=20
+    SENTRY_DSN=https://example.invalid/1
+checks:
+  answer_contains: ["LOG_LEVEL", "DB_POOL", "FEATURE_X", "SENTRY_DSN"]
+  max_steps: 5
