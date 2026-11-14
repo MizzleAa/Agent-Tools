@@ -65,7 +65,10 @@ async def lifespan(_: FastAPI):
             deps.llm_server.start_async()
         else:   # 이전 관리 서버 창을 닫아 남은 llama-server 가 있으면 이어받는다 (모델이 다르면 다시 띄움)
             deps.llm_server.adopt_async()
+    from server.api import schedules as schedules_api
+    schedules_api.start_loop()   # 예약 실행: 30초마다 다음 실행 시각이 된 것을 돌린다
     yield
+    schedules_api.stop_loop()
     await claude_code_api.shutdown()   # Claude Code 탭이 띄운 CLI 프로세스를 정상 종료 (세션 기록은 남는다)
     crawler.cancel_jobs()
     deps.llm_server.stop()

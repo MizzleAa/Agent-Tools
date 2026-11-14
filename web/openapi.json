@@ -7001,6 +7001,401 @@
         "title": "RuntimeStateOut",
         "type": "object"
       },
+      "ScheduleIn": {
+        "properties": {
+          "options": {
+            "$ref": "#/components/schemas/ScheduleOptions-Input"
+          },
+          "task": {
+            "title": "Task",
+            "type": "string"
+          },
+          "when": {
+            "$ref": "#/components/schemas/ScheduleWhen-Input"
+          }
+        },
+        "required": [
+          "task",
+          "when"
+        ],
+        "title": "ScheduleIn",
+        "type": "object"
+      },
+      "ScheduleOptions-Input": {
+        "description": "입력창에서 고른 것 (보통 실행과 같은 뜻).",
+        "properties": {
+          "auto_approve": {
+            "default": "none",
+            "description": "예약 실행은 사람이 없을 때 돌므로 'none' 이면 승인을 기다리며 멈춘다",
+            "enum": [
+              "none",
+              "writes",
+              "all"
+            ],
+            "title": "Auto Approve",
+            "type": "string"
+          },
+          "effort": {
+            "default": "",
+            "enum": [
+              "",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "title": "Effort",
+            "type": "string"
+          },
+          "harness": {
+            "default": "",
+            "title": "Harness",
+            "type": "string"
+          },
+          "max_steps": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Steps"
+          },
+          "model": {
+            "default": "",
+            "description": "'' = 로컬 모델 · 'ext:…' = 외부 모델 (CLI 는 안 됨)",
+            "title": "Model",
+            "type": "string"
+          },
+          "profile": {
+            "default": "general",
+            "title": "Profile",
+            "type": "string"
+          },
+          "workflow": {
+            "default": "",
+            "title": "Workflow",
+            "type": "string"
+          }
+        },
+        "title": "ScheduleOptions",
+        "type": "object"
+      },
+      "ScheduleOptions-Output": {
+        "description": "입력창에서 고른 것 (보통 실행과 같은 뜻).",
+        "properties": {
+          "auto_approve": {
+            "default": "none",
+            "description": "예약 실행은 사람이 없을 때 돌므로 'none' 이면 승인을 기다리며 멈춘다",
+            "enum": [
+              "none",
+              "writes",
+              "all"
+            ],
+            "title": "Auto Approve",
+            "type": "string"
+          },
+          "effort": {
+            "default": "",
+            "enum": [
+              "",
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "title": "Effort",
+            "type": "string"
+          },
+          "harness": {
+            "default": "",
+            "title": "Harness",
+            "type": "string"
+          },
+          "max_steps": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Steps"
+          },
+          "model": {
+            "default": "",
+            "description": "'' = 로컬 모델 · 'ext:…' = 외부 모델 (CLI 는 안 됨)",
+            "title": "Model",
+            "type": "string"
+          },
+          "profile": {
+            "default": "general",
+            "title": "Profile",
+            "type": "string"
+          },
+          "workflow": {
+            "default": "",
+            "title": "Workflow",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile",
+          "workflow",
+          "model",
+          "effort",
+          "harness",
+          "auto_approve",
+          "max_steps"
+        ],
+        "title": "ScheduleOptions",
+        "type": "object"
+      },
+      "ScheduleOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "last_run_id": {
+            "default": "",
+            "description": "마지막으로 시작한 실행 (그 대화로 갈 때)",
+            "title": "Last Run Id",
+            "type": "string"
+          },
+          "last_status": {
+            "default": "",
+            "description": "시작함 · 건너뜀: 까닭",
+            "title": "Last Status",
+            "type": "string"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "options": {
+            "$ref": "#/components/schemas/ScheduleOptions-Output"
+          },
+          "owner": {
+            "default": "",
+            "description": "만든 사람 아이디 ('' = 혼자 쓰기)",
+            "title": "Owner",
+            "type": "string"
+          },
+          "task": {
+            "title": "Task",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "when": {
+            "$ref": "#/components/schemas/ScheduleWhen-Output"
+          },
+          "when_text": {
+            "description": "사람이 읽는 규칙 (예: 매주 월·수 18:30)",
+            "title": "When Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "task",
+          "when",
+          "when_text",
+          "options",
+          "enabled",
+          "next_run_at",
+          "last_run_at",
+          "last_run_id",
+          "last_status",
+          "owner",
+          "created_at"
+        ],
+        "title": "ScheduleOut",
+        "type": "object"
+      },
+      "ScheduleUpdate": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleOptions-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task"
+          },
+          "when": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleWhen-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ScheduleUpdate",
+        "type": "object"
+      },
+      "ScheduleWhen-Input": {
+        "properties": {
+          "at": {
+            "default": "09:00",
+            "description": "시각 HH:MM (every 는 쓰지 않음)",
+            "title": "At",
+            "type": "string"
+          },
+          "date": {
+            "default": "",
+            "description": "once 의 날짜 YYYY-MM-DD",
+            "title": "Date",
+            "type": "string"
+          },
+          "days": {
+            "description": "weekly 의 요일 (0=월 … 6=일)",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "kind": {
+            "description": "once 한 번 · daily 매일 · weekdays 평일 · weekly 고른 요일 · every N분마다",
+            "enum": [
+              "once",
+              "daily",
+              "weekdays",
+              "weekly",
+              "every"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "minutes": {
+            "default": 60,
+            "description": "every 의 간격 (분, 5 이상)",
+            "title": "Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ScheduleWhen",
+        "type": "object"
+      },
+      "ScheduleWhen-Output": {
+        "properties": {
+          "at": {
+            "default": "09:00",
+            "description": "시각 HH:MM (every 는 쓰지 않음)",
+            "title": "At",
+            "type": "string"
+          },
+          "date": {
+            "default": "",
+            "description": "once 의 날짜 YYYY-MM-DD",
+            "title": "Date",
+            "type": "string"
+          },
+          "days": {
+            "description": "weekly 의 요일 (0=월 … 6=일)",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "kind": {
+            "description": "once 한 번 · daily 매일 · weekdays 평일 · weekly 고른 요일 · every N분마다",
+            "enum": [
+              "once",
+              "daily",
+              "weekdays",
+              "weekly",
+              "every"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "minutes": {
+            "default": 60,
+            "description": "every 의 간격 (분, 5 이상)",
+            "title": "Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "at",
+          "date",
+          "days",
+          "minutes"
+        ],
+        "title": "ScheduleWhen",
+        "type": "object"
+      },
       "ScopeCreate": {
         "properties": {
           "companies": {
@@ -17534,6 +17929,364 @@
         "summary": "모델 서버 끄기 (이 관리 화면이 띄운 것만, 관리자)",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/v1/schedules": {
+      "get": {
+        "operationId": "list_schedules_api_v1_schedules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleOut"
+                  },
+                  "title": "Response List Schedules Api V1 Schedules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "입력이 잘못됨"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "토큰이 없거나 허용되지 않은 Host"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "대상이 없음"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "지금은 할 수 없음 (실행 중 등)"
+          }
+        },
+        "summary": "예약 목록 (로그인 사용: 내 것만 · 관리자는 전부)",
+        "tags": [
+          "schedules"
+        ]
+      },
+      "post": {
+        "operationId": "create_schedule_api_v1_schedules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "입력이 잘못됨"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "토큰이 없거나 허용되지 않은 Host"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "대상이 없음"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "지금은 할 수 없음 (실행 중 등)"
+          }
+        },
+        "summary": "예약 만들기 (요청 + 시각 규칙 + 입력창 선택)",
+        "tags": [
+          "schedules"
+        ]
+      }
+    },
+    "/api/v1/schedules/{schedule_id}": {
+      "delete": {
+        "operationId": "delete_schedule_api_v1_schedules__schedule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "입력이 잘못됨"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "토큰이 없거나 허용되지 않은 Host"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "대상이 없음"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "지금은 할 수 없음 (실행 중 등)"
+          }
+        },
+        "summary": "예약 지우기",
+        "tags": [
+          "schedules"
+        ]
+      },
+      "patch": {
+        "operationId": "update_schedule_api_v1_schedules__schedule_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "입력이 잘못됨"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "토큰이 없거나 허용되지 않은 Host"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "대상이 없음"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "지금은 할 수 없음 (실행 중 등)"
+          }
+        },
+        "summary": "예약 바꾸기 (켜기/끄기 · 시각 · 요청 · 선택)",
+        "tags": [
+          "schedules"
+        ]
+      }
+    },
+    "/api/v1/schedules/{schedule_id}/run": {
+      "post": {
+        "operationId": "run_now_api_v1_schedules__schedule_id__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "입력이 잘못됨"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "토큰이 없거나 허용되지 않은 Host"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "대상이 없음"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "지금은 할 수 없음 (실행 중 등)"
+          }
+        },
+        "summary": "예약을 지금 한 번 실행 (다음 시각은 그대로)",
+        "tags": [
+          "schedules"
         ]
       }
     },

@@ -92,6 +92,7 @@ Claude Code 의 세션 기록과 작업 폴더 파일은 그대로 남습니다 
           </NavLink>
         )}
       </nav>
+      <ScheduleList go={go} />
       <div className="sb-section">최근</div>
       <div className="recents">
         {recents.length === 0 && <div className="empty">아직 작업이 없습니다.</div>}
@@ -119,6 +120,40 @@ CLI · Claude Code · ${STATUS_LABEL[r.s.status]}`}
         ))(r.t))}
       </div>
       <div className="sb-foot"><StatusPill />{user ? <UserBox /> : <SoloNote onNavigate={onNavigate} />}</div>
+    </>
+  );
+}
+
+/** 예약 실행 — 대화 화면에서 '/예약 <요청>' 으로 만든다. 누르면 마지막 실행 대화로 */
+function ScheduleList({ go }: { go: (to: string) => void }) {
+  const { schedules, reloadSchedules, reloadThreads } = useApp();
+  const ui = useUi();
+  if (!schedules.length) return null;
+  const act = async (fn: () => Promise<unknown>) => { try { await fn(); } catch (e) { ui.error(e); } await reloadSchedules(); };
+  return (
+    <>
+      <div className="sb-section">예약</div>
+      <div className="recents schedules">
+        {schedules.map((s) => (
+          <div key={s.id} className={`recent schedule${s.enabled ? '' : ' off'}`}>
+            <button type="button" className="recent-open"
+              title={`${s.task}\n${s.when_text}${s.enabled ? ` · 다음 ${fmtTime(s.next_run_at)}` : ' · 꺼짐'}${s.last_status ? `\n마지막: ${fmtTime(s.last_run_at)} ${s.last_status}` : ''}${s.owner ? `\n만든 사람: ${s.owner}` : ''}`}
+              onClick={() => (s.last_run_id ? go(`/c/${s.last_run_id}`) : ui.toast(`아직 실행한 적이 없습니다 — ${s.enabled ? `다음 ${fmtTime(s.next_run_at)}` : '꺼져 있음'}`))}>
+              <span className="t">{s.title}</span>
+              <span className="muted small sched-when">{s.enabled ? `다음 ${fmtTime(s.next_run_at)} · ${s.when_text}` : `꺼짐 · ${s.when_text}`}</span>
+            </button>
+            <button type="button" className="recent-del" title="지금 한 번 실행" aria-label="지금 실행"
+              onClick={() => act(async () => { const r = await api.schedules.run(s.id); ui.toast(r.last_status, r.last_run_id ? 'ok' : 'error'); if (r.last_run_id) { await reloadThreads(); go(`/c/${r.last_run_id}`); } })}>
+              <Icon name="play" size={14} /></button>
+            <button type="button" className="recent-del" title={s.enabled ? '끄기' : '켜기'} aria-label={s.enabled ? '끄기' : '켜기'}
+              onClick={() => act(() => api.schedules.update(s.id, { enabled: !s.enabled }))}>
+              <Icon name={s.enabled ? 'stop' : 'play'} size={14} /></button>
+            <button type="button" className="recent-del" title="예약 지우기" aria-label="예약 지우기"
+              onClick={async () => { if (await ui.confirm({ title: '예약을 지울까요?', message: `'${s.title}' (${s.when_text})`, confirmText: '지우기', danger: true })) act(() => api.schedules.remove(s.id)); }}>
+              <Icon name="trash" size={14} /></button>
+          </div>
+        ))}
+      </div>
     </>
   );
 }

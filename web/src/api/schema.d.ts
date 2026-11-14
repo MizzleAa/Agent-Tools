@@ -1550,6 +1550,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 예약 목록 (로그인 사용: 내 것만 · 관리자는 전부) */
+        get: operations["list_schedules_api_v1_schedules_get"];
+        put?: never;
+        /** 예약 만들기 (요청 + 시각 규칙 + 입력창 선택) */
+        post: operations["create_schedule_api_v1_schedules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{schedule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 예약 지우기 */
+        delete: operations["delete_schedule_api_v1_schedules__schedule_id__delete"];
+        options?: never;
+        head?: never;
+        /** 예약 바꾸기 (켜기/끄기 · 시각 · 요청 · 선택) */
+        patch: operations["update_schedule_api_v1_schedules__schedule_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/schedules/{schedule_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 예약을 지금 한 번 실행 (다음 시각은 그대로) */
+        post: operations["run_now_api_v1_schedules__schedule_id__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/secrets/{name}": {
         parameters: {
             query?: never;
@@ -5240,6 +5293,212 @@ export interface components {
              * @enum {string}
              */
             state: "ok" | "loading" | "down" | "occupied";
+        };
+        /** ScheduleIn */
+        ScheduleIn: {
+            options?: components["schemas"]["ScheduleOptions-Input"];
+            /** Task */
+            task: string;
+            when: components["schemas"]["ScheduleWhen-Input"];
+        };
+        /**
+         * ScheduleOptions
+         * @description 입력창에서 고른 것 (보통 실행과 같은 뜻).
+         */
+        "ScheduleOptions-Input": {
+            /**
+             * Auto Approve
+             * @description 예약 실행은 사람이 없을 때 돌므로 'none' 이면 승인을 기다리며 멈춘다
+             * @default none
+             * @enum {string}
+             */
+            auto_approve?: "none" | "writes" | "all";
+            /**
+             * Effort
+             * @default
+             * @enum {string}
+             */
+            effort?: "" | "low" | "medium" | "high" | "xhigh" | "max";
+            /**
+             * Harness
+             * @default
+             */
+            harness?: string;
+            /** Max Steps */
+            max_steps?: number | null;
+            /**
+             * Model
+             * @description '' = 로컬 모델 · 'ext:…' = 외부 모델 (CLI 는 안 됨)
+             * @default
+             */
+            model?: string;
+            /**
+             * Profile
+             * @default general
+             */
+            profile?: string;
+            /**
+             * Workflow
+             * @default
+             */
+            workflow?: string;
+        };
+        /**
+         * ScheduleOptions
+         * @description 입력창에서 고른 것 (보통 실행과 같은 뜻).
+         */
+        "ScheduleOptions-Output": {
+            /**
+             * Auto Approve
+             * @description 예약 실행은 사람이 없을 때 돌므로 'none' 이면 승인을 기다리며 멈춘다
+             * @default none
+             * @enum {string}
+             */
+            auto_approve: "none" | "writes" | "all";
+            /**
+             * Effort
+             * @default
+             * @enum {string}
+             */
+            effort: "" | "low" | "medium" | "high" | "xhigh" | "max";
+            /**
+             * Harness
+             * @default
+             */
+            harness: string;
+            /** Max Steps */
+            max_steps: number | null;
+            /**
+             * Model
+             * @description '' = 로컬 모델 · 'ext:…' = 외부 모델 (CLI 는 안 됨)
+             * @default
+             */
+            model: string;
+            /**
+             * Profile
+             * @default general
+             */
+            profile: string;
+            /**
+             * Workflow
+             * @default
+             */
+            workflow: string;
+        };
+        /** ScheduleOut */
+        ScheduleOut: {
+            /** Created At */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Id */
+            id: string;
+            /** Last Run At */
+            last_run_at: string | null;
+            /**
+             * Last Run Id
+             * @description 마지막으로 시작한 실행 (그 대화로 갈 때)
+             * @default
+             */
+            last_run_id: string;
+            /**
+             * Last Status
+             * @description 시작함 · 건너뜀: 까닭
+             * @default
+             */
+            last_status: string;
+            /** Next Run At */
+            next_run_at: string | null;
+            options: components["schemas"]["ScheduleOptions-Output"];
+            /**
+             * Owner
+             * @description 만든 사람 아이디 ('' = 혼자 쓰기)
+             * @default
+             */
+            owner: string;
+            /** Task */
+            task: string;
+            /** Title */
+            title: string;
+            when: components["schemas"]["ScheduleWhen-Output"];
+            /**
+             * When Text
+             * @description 사람이 읽는 규칙 (예: 매주 월·수 18:30)
+             */
+            when_text: string;
+        };
+        /** ScheduleUpdate */
+        ScheduleUpdate: {
+            /** Enabled */
+            enabled?: boolean | null;
+            options?: components["schemas"]["ScheduleOptions-Input"] | null;
+            /** Task */
+            task?: string | null;
+            when?: components["schemas"]["ScheduleWhen-Input"] | null;
+        };
+        /** ScheduleWhen */
+        "ScheduleWhen-Input": {
+            /**
+             * At
+             * @description 시각 HH:MM (every 는 쓰지 않음)
+             * @default 09:00
+             */
+            at?: string;
+            /**
+             * Date
+             * @description once 의 날짜 YYYY-MM-DD
+             * @default
+             */
+            date?: string;
+            /**
+             * Days
+             * @description weekly 의 요일 (0=월 … 6=일)
+             */
+            days?: number[];
+            /**
+             * Kind
+             * @description once 한 번 · daily 매일 · weekdays 평일 · weekly 고른 요일 · every N분마다
+             * @enum {string}
+             */
+            kind: "once" | "daily" | "weekdays" | "weekly" | "every";
+            /**
+             * Minutes
+             * @description every 의 간격 (분, 5 이상)
+             * @default 60
+             */
+            minutes?: number;
+        };
+        /** ScheduleWhen */
+        "ScheduleWhen-Output": {
+            /**
+             * At
+             * @description 시각 HH:MM (every 는 쓰지 않음)
+             * @default 09:00
+             */
+            at: string;
+            /**
+             * Date
+             * @description once 의 날짜 YYYY-MM-DD
+             * @default
+             */
+            date: string;
+            /**
+             * Days
+             * @description weekly 의 요일 (0=월 … 6=일)
+             */
+            days: number[];
+            /**
+             * Kind
+             * @description once 한 번 · daily 매일 · weekdays 평일 · weekly 고른 요일 · every N분마다
+             * @enum {string}
+             */
+            kind: "once" | "daily" | "weekdays" | "weekly" | "every";
+            /**
+             * Minutes
+             * @description every 의 간격 (분, 5 이상)
+             * @default 60
+             */
+            minutes: number;
         };
         /** ScopeCreate */
         ScopeCreate: {
@@ -12696,6 +12955,300 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuntimeStateOut"];
+                };
+            };
+            /** @description 입력이 잘못됨 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 토큰이 없거나 허용되지 않은 Host */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 대상이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 지금은 할 수 없음 (실행 중 등) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_schedules_api_v1_schedules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleOut"][];
+                };
+            };
+            /** @description 입력이 잘못됨 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 토큰이 없거나 허용되지 않은 Host */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 대상이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 지금은 할 수 없음 (실행 중 등) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_schedule_api_v1_schedules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleOut"];
+                };
+            };
+            /** @description 입력이 잘못됨 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 토큰이 없거나 허용되지 않은 Host */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 대상이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 지금은 할 수 없음 (실행 중 등) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_schedule_api_v1_schedules__schedule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description 입력이 잘못됨 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 토큰이 없거나 허용되지 않은 Host */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 대상이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 지금은 할 수 없음 (실행 중 등) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_schedule_api_v1_schedules__schedule_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleOut"];
+                };
+            };
+            /** @description 입력이 잘못됨 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 토큰이 없거나 허용되지 않은 Host */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 대상이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 지금은 할 수 없음 (실행 중 등) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    run_now_api_v1_schedules__schedule_id__run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schedule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleOut"];
                 };
             };
             /** @description 입력이 잘못됨 */

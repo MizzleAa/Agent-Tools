@@ -108,6 +108,13 @@ svg { display: block; flex: none; }
 .recent-del:hover { color: var(--bad); background: var(--bad-bg); }
 @media (hover: none) { .recent-del { opacity: 1; } }
 .recent .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 사이드바 '예약' — 최근 대화 위, 두 줄 (제목 / 규칙 · 다음 시각) */
+.recents.schedules { flex: none; max-height: 30vh; padding-bottom: 0; }
+.schedule .recent-open { flex-direction: column; align-items: stretch; gap: 0; padding-top: 5px; padding-bottom: 5px; }
+.schedule .t { flex: none; }
+.schedule .sched-when { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schedule.off .t { opacity: .55; }
+.schedule .recent-del:not(:last-child):hover { color: var(--text); background: var(--hover); }   /* 지금 실행 · 켜기/끄기 (지우기만 빨강) */
 .recent .dot { width: 7px; height: 7px; border-radius: 999px; flex: none; background: transparent; }
 .recent .dot.running { background: var(--accent); animation: pulse 1.2s infinite; }
 .recent .dot.stuck { background: var(--warn); }

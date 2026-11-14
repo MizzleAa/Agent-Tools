@@ -27,6 +27,8 @@ interface AppState {
   reloadCatalog: () => Promise<void>;
   threads: Thread[];
   reloadThreads: () => Promise<void>;
+  schedules: Schemas['ScheduleOut'][];   // 예약 실행 (사이드바 '예약')
+  reloadSchedules: () => Promise<void>;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -50,6 +52,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [harnesses, setHarnesses] = useState<Schemas['HarnessChoice'][]>([]);
   const [commands, setCommands] = useState<Schemas['HarnessCommand'][]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
+  const [schedules, setSchedules] = useState<Schemas['ScheduleOut'][]>([]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [choice, setModelChoice] = useStored('model-choice', '');
   const { isAdmin } = useAuth();
@@ -85,14 +88,34 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     try { setThreads(groupThreads(await api.runs.list(200))); } catch { /* 연결 끊김: 상태 배너가 알려 준다 */ }
   }, []);
 
+  const reloadSchedules = useCallback(async () => {
+    try { setSchedules(await api.schedules.list()); } catch { /* 연결 끊김: 상태 배너가 알려 준다 */ }
+  }, []);
+
   useEffect(() => { if (isAdmin) void refreshCc(); }, [isAdmin]);
+
+  // 예약 실행은 서버에서 시작되므로 30초마다 다시 읽는다 — 새로 시작한 실행이 있으면 최근 대화도
+  const lastRuns = useRef('');
+  useEffect(() => {
+    const t = setInterval(async () => {
+      try {
+        const list = await api.schedules.list();
+        setSchedules(list);
+        const sig = list.map((s) => s.last_run_id).join(',');
+        if (lastRuns.current && sig !== lastRuns.current) void reloadThreads();
+        lastRuns.current = sig;
+      } catch { /* 다음에 */ }
+    }, 30000);
+    return () => clearInterval(t);
+  }, [reloadThreads]);
 
   useEffect(() => {
     poll();
     reloadCatalog().catch(() => {});
     reloadThreads();
+    reloadSchedules();
     return () => clearTimeout(timer.current);
-  }, [poll, reloadCatalog, reloadThreads]);
+  }, [poll, reloadCatalog, reloadThreads, reloadSchedules]);
 
   // 고른 외부 모델이 없어졌으면(연결 삭제·꺼짐·폐쇄망 스위치) 로컬 모델로 돌아간다. CLI 는 관리자만 (쓸 수 없는 까닭은 화면이 알려 준다)
   const external = (choice && status?.external_models.find((m) => m.key === choice)) || null;
@@ -104,7 +127,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     status, unreachable,
     modelReady: !unreachable && (ccChosen ? ccReady : external ? external.ready : status?.runtime.state === 'ok'),
     modelChoice, external, setModelChoice,
-    refreshStatus: poll, profiles, harnesses, workflows, commands, reloadCatalog, threads, reloadThreads,
+    refreshStatus: poll, profiles, harnesses, workflows, commands, reloadCatalog, threads, reloadThreads, schedules, reloadSchedules,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

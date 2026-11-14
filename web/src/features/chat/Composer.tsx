@@ -2,7 +2,8 @@
 // 모델 선택(ModelSelect)은 Claude Code(CLI) 입력창도 같이 쓴다: 로컬(오프라인) · 외부 API · CLI(온라인)
 import { type KeyboardEvent, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '@/api';
+import { api, type Schemas } from '@/api';
+import { fmtTime } from '@/lib/format';
 import { CC_MODELS, ccProblem, type CcEngine, cliChoice, ENGINE_LABEL, isCc, parseCli } from '@/features/claudecode/lib';
 import { useCc } from '@/features/claudecode/store';
 import { useApp } from '@/state/AppState';
@@ -176,9 +177,10 @@ export function Composer({ text, setText, options, setOption, running, onSend, o
   running: boolean; onSend: (text?: string) => void; onStop: () => void; isNew: boolean;   // isNew: 새 대화 (작업 위치를 고를 수 있음)
   extraCommands?: SlashCommand[];   // 대화 화면이 더하는 '/' 명령 (사용량 · 컨텍스트 · 다시 · 중지)
 }) {
-  const { profiles, harnesses, workflows, modelReady, external: chosen, commands: harnessCmds } = useApp();
+  const { profiles, harnesses, workflows, modelReady, external: chosen, commands: harnessCmds, modelChoice, reloadSchedules } = useApp();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const ui = useUi();
   const model = useModelChoice({ running });
   const levels = effortLevels(chosen);
   const commands: SlashCommand[] = [   // '/' 명령 — 아래 선택 칸을 키보드로 바꾼다
@@ -196,7 +198,40 @@ export function Composer({ text, setText, options, setOption, running, onSend, o
       choices: () => pairChoices(APPROVE, options.approve), run: (v) => setOption('approve', v) },
     { name: 'steps', aliases: ['스텝'], desc: '최대 스텝 (모델을 몇 번까지 부를지)', kind: 'web',
       choices: () => pairChoices(STEPS, options.maxSteps), run: (v) => setOption('maxSteps', v) },
+    { name: 'schedule', aliases: ['예약'], desc: '이 요청을 정해 둔 시각 · 간격에 실행 (사이드바 \'예약\')', hint: '<예약할 요청>', kind: 'web',
+      needsArg: true, run: (t) => void schedule(t) },
   ];
+  // '/예약 <요청>': 언제 돌릴지 묻고, 지금 입력창의 선택(용도 · 모델 · 하네스 · 승인 · 스텝)으로 예약한다
+  const schedule = async (task: string) => {
+    const d = new Date(Date.now() + 864e5);
+    const tomorrow = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const v = await ui.form({
+      title: '예약 실행', confirmText: '예약',
+      message: `요청: ${task}\n지금 입력창의 용도 · 모델 · 하네스 · 승인 · 스텝으로 실행합니다 (CLI 모델은 예약할 수 없음).`
+        + (options.approve === 'none' ? '\n⚠ 승인이 \'매번 묻기\'라 실행하다 승인을 기다리며 멈출 수 있습니다 — 자리에 없을 때 돌리려면 \'파일 쓰기 자동\' 이상을 고르세요.' : ''),
+      fields: [
+        { name: 'kind', label: '반복', value: 'daily', options: [['daily', '매일'], ['weekdays', '평일 (월~금)'], ['weekly', '매주 — 아래 요일'], ['every', 'N분마다 — 아래 간격'], ['once', '한 번 — 아래 날짜']] },
+        { name: 'at', label: '시각 (24시간, 예: 09:00)', value: '09:00' },
+        { name: 'days', label: '요일 (매주일 때, 예: 월,수,금)', value: '월' },
+        { name: 'minutes', label: '간격 (N분마다일 때, 분)', value: '60', type: 'number' },
+        { name: 'date', label: '날짜 (한 번일 때)', value: tomorrow },
+      ],
+    });
+    if (!v) return;
+    const wf = options.choice.startsWith('wf:');
+    try {
+      const s = await api.schedules.create({
+        task,
+        when: { kind: v.kind as Schemas['ScheduleIn']['when']['kind'], at: v.at.trim(), date: v.date.trim(), minutes: Number(v.minutes) || 60,
+          days: [...v.days].map((ch) => '월화수목금토일'.indexOf(ch)).filter((i) => i >= 0) },
+        options: { profile: wf ? 'general' : options.choice, workflow: wf ? options.choice.slice(3) : '', model: modelChoice,
+          effort: options.effort as NonNullable<Schemas['ScheduleIn']['options']>['effort'], harness: options.harness,
+          auto_approve: options.approve as NonNullable<Schemas['ScheduleIn']['options']>['auto_approve'], max_steps: Number(options.maxSteps) },
+      });
+      ui.toast(`예약했습니다: ${s.when_text} · 다음 ${fmtTime(s.next_run_at)}`, 'ok');
+      void reloadSchedules();
+    } catch (e) { ui.error(e); }
+  };
   const slash = useSlash(text, setText, mergeCommands([...commands, ...extraCommands],
     harnessCommands(harnessCmds, harnesses, options.harness), templateCommands('AGENT.md')), (t) => onSend(t));
   const ta = useRef<HTMLTextAreaElement>(null);

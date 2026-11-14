@@ -6,6 +6,7 @@
     /api/v1/intranet …      사내 사이트·API·허용 주소·토큰        server/api/connections.py
     /api/v1/workspace …     작업 폴더·파일 보기 (읽기 전용)       server/api/files.py
     /api/v1/locations …     파일 탐색기·공유 위치 (읽기 전용)     server/api/locations.py
+    /api/v1/schedules …     예약 실행 (내 것만 · 관리자는 전부)    server/api/schedules.py
     /api/v1/settings …      프롬프트·용도·워크플로·파라미터 …     server/api/settings/   (관리자)
     /api/v1/auth …          로그인·비밀번호·비밀번호 찾기         server/api/auth.py     (로그인 없이)
     /api/v1/me …            내 사내 API 계정                      server/api/auth.py
@@ -22,12 +23,12 @@ web/openapi.json 은 이 계약을 저장한 것이고, 화면의 TypeScript 타
 from fastapi import APIRouter, Depends
 
 from server import deps
-from server.api import admin, auth, catalog, claude_code, connections, files, harness, locations, runs, system
+from server.api import admin, auth, catalog, claude_code, connections, files, harness, locations, runs, schedules, system
 from server.api import settings as settings_api
 
 VERSION = "v1"
 router = APIRouter(prefix=f"/api/{VERSION}")
-for module in (runs, catalog, system, files, locations, auth, admin):
+for module in (runs, schedules, catalog, system, files, locations, auth, admin):
     router.include_router(module.router)
 for module in (connections, settings_api, harness, claude_code):   # 모두가 같이 쓰는 설정·이 PC 의 Claude Code — 관리자만
     router.include_router(module.router, dependencies=[Depends(deps.require_admin)])

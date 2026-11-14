@@ -29,6 +29,14 @@ export const api = {
   threads: {
     remove: (root_id: string) => unwrap(http.DELETE('/api/v1/threads/{root_id}', p({ root_id }))),
   },
+  /** 예약 실행 (내 것만 · 관리자는 전부) */
+  schedules: {
+    list: () => unwrap(http.GET('/api/v1/schedules')),
+    create: (body: S['ScheduleIn']) => unwrap(http.POST('/api/v1/schedules', { body })),
+    update: (schedule_id: string, body: S['ScheduleUpdate']) => unwrap(http.PATCH('/api/v1/schedules/{schedule_id}', { ...p({ schedule_id }), body })),
+    remove: (schedule_id: string) => unwrap(http.DELETE('/api/v1/schedules/{schedule_id}', p({ schedule_id }))),
+    run: (schedule_id: string) => unwrap(http.POST('/api/v1/schedules/{schedule_id}/run', p({ schedule_id }))),
+  },
   auth: {
     me: () => unwrap(http.GET('/api/v1/auth/me')),
     login: (username: string, password: string) => unwrap(http.POST('/api/v1/auth/login', { body: { username, password } })),

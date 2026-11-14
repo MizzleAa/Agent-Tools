@@ -41,7 +41,22 @@ create table if not exists events (
     created_at text not null
 );
 create index if not exists idx_events_run on events(run_id, seq);
+create table if not exists schedules (
+    id text primary key,
+    user_id text not null default '',
+    title text not null,
+    task text not null,
+    when_json text not null,
+    options_json text not null default '{}',
+    enabled integer not null default 1,
+    created_at text not null,
+    next_run_at text,
+    last_run_at text,
+    last_run_id text not null default '',
+    last_status text not null default ''
+);
 """
+SCHEDULE_COLS = ("title", "task", "when_json", "options_json", "enabled", "next_run_at", "last_run_at", "last_run_id", "last_status")
 
 
 def _now() -> str:
@@ -170,3 +185,43 @@ class Store:
                 return None
             events = self.db.execute("select data from events where run_id=? order by seq", (run_id,))
             return {**dict(row), "events": [json.loads(e["data"]) for e in events]}
+
+    # ───────── 예약 실행 (9단계 — agent/schedules.py · server/api/schedules.py)
+    def add_schedule(self, row: dict[str, Any]) -> dict[str, Any]:
+        row = {"user_id": "", "options_json": "{}", "enabled": 1, "next_run_at": None, "last_run_at": None,
+               "last_run_id": "", "last_status": "", "created_at": _now(), **row}
+        cols = ", ".join(row)
+        with self.lock, self.db:
+            self.db.execute(f"insert into schedules ({cols}) values ({', '.join('?' * len(row))})", list(row.values()))
+        return self.get_schedule(row["id"])  # type: ignore[return-value]
+
+    def get_schedule(self, schedule_id: str) -> dict[str, Any] | None:
+        with self.lock:
+            row = self.db.execute("select * from schedules where id=?", (schedule_id,)).fetchone()
+        return dict(row) if row else None
+
+    def list_schedules(self, user_id: str | None = None) -> list[dict[str, Any]]:
+        """user_id = None 이면 전부 (관리자)."""
+        sql, args = "select * from schedules", []
+        if user_id is not None:
+            sql, args = sql + " where user_id=?", [user_id]
+        with self.lock:
+            return [dict(r) for r in self.db.execute(sql + " order by created_at, id", args)]
+
+    def update_schedule(self, schedule_id: str, **cols: Any) -> None:
+        bad = set(cols) - set(SCHEDULE_COLS)
+        if bad:
+            raise ValueError(f"바꿀 수 없는 칸: {sorted(bad)}")
+        if cols:
+            with self.lock, self.db:
+                self.db.execute(f"update schedules set {', '.join(f'{k}=?' for k in cols)} where id=?", [*cols.values(), schedule_id])
+
+    def delete_schedule(self, schedule_id: str) -> bool:
+        with self.lock, self.db:
+            return self.db.execute("delete from schedules where id=?", (schedule_id,)).rowcount > 0
+
+    def due_schedules(self, now_iso: str) -> list[dict[str, Any]]:
+        with self.lock:
+            return [dict(r) for r in self.db.execute(
+                "select * from schedules where enabled=1 and next_run_at is not null and next_run_at <= ? order by next_run_at",
+                (now_iso,))]
