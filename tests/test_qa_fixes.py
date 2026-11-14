@@ -113,10 +113,10 @@ def test_A2_question_answer_ends_as_before(settings, profile):
 
 # ───────────────────────── A3. 타임아웃 때 출력이 남는가 (Python, Node, .NET)
 
-def _assert_output_kept(out, marker):
+def _assert_output_kept(out, marker, sec=3):
     assert marker in out, out                                               # 멈추기 전까지 나온 출력이 남는다
     assert "시간 초과로 중지함" in out and "강제로 멈췄습니다" in out and "스스로 종료" in out   # 타임아웃의 뜻을 알려 준다
-    assert TIMEOUT_HINT.format(sec=3) in out
+    assert TIMEOUT_HINT.format(sec=sec) in out
 
 
 def test_A3_python_output_survives_timeout(ctx):
@@ -126,8 +126,9 @@ def test_A3_python_output_survives_timeout(ctx):
 
 @pytest.mark.skipif(not shutil.which("node"), reason="Node 없음")
 def test_A3_node_output_survives_timeout(ctx):
+    # 시간 제한은 넉넉히 — 느린 PC(CI 러너)에서는 PowerShell 5.1 + node 가 뜨는 데만 3초를 넘기기도 한다
     _assert_output_kept(run_command(ctx, command="node -e \"console.log('A-node'); setInterval(() => {}, 1000)\"",
-                                    timeout_sec=3), "A-node")
+                                    timeout_sec=10), "A-node", sec=10)
 
 
 @pytest.mark.skipif(not shutil.which("dotnet"), reason=".NET SDK 없음")
