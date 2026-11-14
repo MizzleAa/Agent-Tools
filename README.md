@@ -1,5 +1,7 @@
 # 로컬 에이전트 (폐쇄망용)
 
+[![CI](https://github.com/MizzleAa/Agent-Tools/actions/workflows/ci.yml/badge.svg)](https://github.com/MizzleAa/Agent-Tools/actions/workflows/ci.yml)
+
 Qwen 모델을 내 PC 에서 돌리고, 그 위에 **직접 만든 에이전트 루프**와 **브라우저 관리 화면**을 얹은 프로젝트.
 외부 서비스 없이 `llama-server.exe` + GGUF 모델 파일 + 파이썬만으로 동작하므로 폐쇄망에 그대로 옮길 수 있다.
 
@@ -476,6 +478,18 @@ harness/
   `searxng`(사내 SearXNG 주소를 `web.searxng_url` 에) / `none`(폐쇄망, 검색 끔).
   사내 위키 같은 내부 사이트를 읽게 하려면 `web.allow_private_hosts` 에 호스트나 대역을 추가한다 (기본은 내부망 차단)
 - **에이전트 역할(용도) 추가**: 설정 · 프롬프트 › **＋ 새 용도** (또는 `config/agents/` 에 YAML 하나, 도구는 10개 이하)
+
+## CI/CD · 작업 방식 (TDD)
+
+GitHub Actions (`.github/workflows/`). 모델 · llama.cpp · 진짜 CLI 없이 돈다 — `tests/conftest.py` 가 계정 · 하네스 · 모델 서버 · CLI 를 가짜로 바꿔 끼운다.
+
+- **CI** (`ci.yml`, 모든 브랜치 push · PR): ① 서버 테스트 — Windows · Python 3.12 · `pytest` ② 화면 — `npm ci` → `npm run gen:api` 결과가
+  커밋된 `src/api/schema.d.ts` 와 같은지(API 계약) → `typecheck` → `vitest` → `build`. 서버 쪽 계약(`web/openapi.json`)은 `tests/test_api_contract.py` 가 본다.
+- **CD** (`release.yml`, 버전 태그): `git tag v0.1.0 && git push origin v0.1.0` → 테스트를 다시 통과하면 GitHub Release 에
+  `ai-agent-<태그>.zip`(코드 + 화면 빌드) · `ai-agent-<태그>-wheels.zip`(폐쇄망 설치용 파이썬 패키지, Windows · 3.12)을 올린다.
+  모델(GGUF) · llama.cpp 는 넣지 않는다 — 기존 PC 것을 쓰거나 `scripts\make_offline_bundle.ps1` 로 따로 옮긴다.
+- **작업 순서**: 브랜치(`feat/…` · `fix/…`) → **테스트 먼저**(실패 확인) → 구현 → 로컬 `pytest` · `npm test` → push → Actions 초록 → PR → main.
+  `main` 에 바로 올리지 않는다. API 를 바꾸면 `scripts/export_openapi.py` → web 에서 `npm run gen:api` 까지 커밋.
 
 ## 진행 상황
 

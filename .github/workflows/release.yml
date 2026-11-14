@@ -1,0 +1,69 @@
+# CD — 버전 태그(v1.2.3)를 push 하면 테스트를 통과한 코드로 릴리스를 만든다. 모델(GGUF) · llama.cpp 는 넣지 않는다.
+#   git tag v0.1.0 && git push origin v0.1.0
+# 결과 (GitHub › Releases):
+#   ai-agent-<태그>.zip          코드 + 화면 빌드(web/dist) — 이미 설치된 PC 는 이것으로 덮어 갱신
+#   ai-agent-<태그>-wheels.zip   파이썬 패키지 설치 파일 (Windows · Python 3.12) — 폐쇄망 설치용 (pip install --no-index --find-links)
+# 모델 · llama.cpp 는 크고 라이선스가 따로라 기존 PC 의 models\ · runtime\ 을 그대로 쓰거나 scripts\make_offline_bundle.ps1 로 따로 옮긴다.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # 릴리스 만들기
+
+jobs:
+  release:
+    name: 테스트 → 묶음 → 릴리스
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: 패키지 설치
+        run: python -m pip install -r requirements.txt -r requirements-claude-code.txt
+      - name: 테스트 (통과해야 릴리스)
+        run: python -m pytest -q -p no:cacheprovider
+      - name: 화면 빌드
+        working-directory: web
+        run: |
+          npm ci --no-fund --no-audit
+          npm test
+          npm run build
+      - name: 묶음 만들기
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $out = Join-Path $env:RUNNER_TEMP 'out'
+          $stage = Join-Path $env:RUNNER_TEMP "ai-agent-$tag"
+          New-Item -ItemType Directory -Force $out, $stage | Out-Null
+          git archive --format=zip -o (Join-Path $env:RUNNER_TEMP 'src.zip') HEAD
+          Expand-Archive (Join-Path $env:RUNNER_TEMP 'src.zip') $stage
+          Copy-Item -Recurse web/dist (Join-Path $stage 'web/dist')
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath (Join-Path $out "ai-agent-$tag.zip")
+          $wheels = Join-Path $env:RUNNER_TEMP 'wheels'
+          python -m pip download -r requirements.txt -r requirements-claude-code.txt -d $wheels --only-binary=:all: --python-version 3.12 --platform win_amd64
+          if ($LASTEXITCODE -ne 0) { throw 'pip download 실패' }
+          Compress-Archive -Path (Join-Path $wheels '*') -DestinationPath (Join-Path $out "ai-agent-$tag-wheels.zip")
+          Get-ChildItem $out | ForEach-Object { '{0}  {1:N1} MB' -f $_.Name, ($_.Length / 1MB) }
+      - name: 릴리스 만들기
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $out = Join-Path $env:RUNNER_TEMP 'out'
+          gh release create $tag (Get-ChildItem $out).FullName --title "AI Agent $tag" --generate-notes
