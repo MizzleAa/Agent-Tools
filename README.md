@@ -316,6 +316,19 @@ apis:
   시도해 한 번이라도 표시됐으면 화면에서 그 이름의 실패 칸은 빼고, 실패만 있으면 마지막 것만 보인다.
 - 여러 장을 한 번에 붙이는 `show_images` 도구도 있다 (기본 intranet 용도에는 도구 수 한도 때문에 넣지 않았다 — 필요하면 용도에 추가).
 
+## 문서 Q&A (`docs` 용도)
+
+폴더의 문서(PDF · 워드 · 엑셀 · CSV · MD · TXT …)를 색인해 근거와 함께 답한다. 입력창 용도에서 `docs` → "이 폴더 문서로 답해 줘: 매뉴얼" .
+
+- `index_documents(폴더)` — `agent/doclib.py`: 문서를 글로 바꿔(`agent/documents.py`) `data/index.db` 에 넣는다 (사내 사이트 색인과 같은 DB,
+  출처만 `docs:<폴더>`). 마크다운 제목(#)에서 끊어 600자 안팎 조각으로. 바뀐 파일만 다시 읽고, 지운 파일은 뺀다.
+- **의미 검색**: 조각마다 임베딩(Qwen3-Embedding-0.6B, 1024차원)을 `sqlite-vec`(코사인)에 둔다 — `agent/embedding.py` 가
+  `llama-server --embedding --pooling last` 를 **CPU** 로 하나 더 띄운다 (포트 18081, 처음 쓸 때 · 관리 서버가 끝날 때 같이 꺼짐).
+  채팅 모델과 VRAM 을 다투지 않는다. 설정은 `settings.yaml` 의 `embedding:` (`enabled` · `model_path` · `gpu_layers` · `url` · `max_distance`).
+- `search_documents(질문)` — 낱말(FTS5, 조사 떼고 의문사 빼고) + 의미(벡터)를 **RRF** 로 합쳐 조각 6개. 질문 문장을 그대로 넣어도
+  같은 뜻의 다른 말까지 찾는다 (예: "노즐은 언제 바꿔야?" → '분사구 … 갈아끼운다'). 의미로만 찾은 것은 너무 먼 것(코사인 거리 0.7 넘게 ·
+  가장 가까운 것보다 0.15 넘게)을 뺀다. 임베딩 모델이 없으면(또는 꺼 두면) 낱말 검색만 한다.
+
 ## 공유 경로 · 파일 탐색기 (`general` 프로필)
 
 채팅에 `\\서버\공유\폴더\파일.xlsx`, `Z:\프로젝트\사양서`(네트워크 드라이브), `file://서버/공유/…` 를 붙이면 그대로 읽는다
@@ -502,7 +515,7 @@ GitHub Actions (`.github/workflows/`). 모델 · llama.cpp · 진짜 CLI 없이 
 - [x] 실행 옵션: 승인 모드(자동 승인), 최대 스텝(무제한), 채팅·화면으로 사이트/API 등록
 - [x] 6 웹 검색(한국+미국) + 페이지 본문 읽기, 내부망 차단·허용 목록, `researcher` 프로필
 - [x] 6+ 사내 사이트 수집·검색(FTS5), 사내 REST API 호출(`api_get`/`api_send`), `intranet` 프로필
-- [ ] 7 문서 Q&A (sqlite-vec + FTS5, Qwen3-Embedding)
+- [x] 7 문서 Q&A (sqlite-vec + FTS5, Qwen3-Embedding) — `docs` 용도 · `index_documents` · `search_documents`
 - [ ] 8 프로필 편집 화면
 - [ ] 9 예약 실행
 - [ ] 10 더 큰 모델 (MoE) + eval 15개

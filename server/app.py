@@ -69,6 +69,8 @@ async def lifespan(_: FastAPI):
     await claude_code_api.shutdown()   # Claude Code 탭이 띄운 CLI 프로세스를 정상 종료 (세션 기록은 남는다)
     crawler.cancel_jobs()
     deps.llm_server.stop()
+    from agent import embedding
+    embedding.stop_server()   # 문서 Q&A 가 띄운 임베딩 서버 (띄운 적 없으면 아무것도 안 한다)
 
 
 app = FastAPI(title="AI Agent API", version="1.0.0", lifespan=lifespan,
