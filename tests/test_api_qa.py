@@ -364,8 +364,11 @@ def test_E11_standards_copy_matches_qa_original():
     qa = Path(r"C:\workspace\Agent_QA\기준")
     if not qa.is_dir():
         pytest.skip("QA 기준 폴더 없음")
-    ours = {p.name: p.read_bytes() for p in standards.STANDARDS_DIR.glob("*.md")}
-    theirs = {p.name: p.read_bytes() for p in qa.glob("*.md")}
+    # 줄 끝(LF/CRLF)은 git 이 받을 때 바꿀 수 있으므로 (core.autocrlf) 내용만 비교한다
+    def text(p: Path) -> bytes:
+        return p.read_bytes().replace(b"\r\n", b"\n")
+    ours = {p.name: text(p) for p in standards.STANDARDS_DIR.glob("*.md")}
+    theirs = {p.name: text(p) for p in qa.glob("*.md")}
     assert ours == theirs
 
 
