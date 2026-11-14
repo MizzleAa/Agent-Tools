@@ -76,4 +76,12 @@ describe('buildItems', () => {
     expect(task.children).toHaveLength(1);
     expect((task.children[0] as typeof task).result?.content).toBe('a.txt');
   });
+
+  it("'/' 명령 목록: commands 이벤트로 바뀌고, 목록 없는 스냅숏은 있던 목록을 지우지 않는다", () => {
+    const list = [{ name: 'compact', description: '요약', description_en: 'Summarize', hint: '', aliases: [], builtin: true }];
+    let s = applyEvent(emptyChat(), ev({ type: 'commands', data: { commands: list } }));
+    expect(s.commands).toEqual(list);
+    s = applyEvent(s, ev({ type: 'snapshot', data: { session: null, process: null, pending: [], live_turn: null, init: null } }));
+    expect(s.commands).toEqual(list);
+  });
 });

@@ -31,7 +31,7 @@ class HarnessFolder(ApiModel):
 class HarnessDoc(ApiModel):
     path: str
     folder: str
-    kind: str = Field(description="instructions(AGENT.md) · role(agents/*.md) · doc(자료)")
+    kind: str = Field(description="instructions(AGENT.md) · role(agents/*.md) · command(commands/*.md) · doc(자료)")
     title: str
     description: str
     tags: list[str]

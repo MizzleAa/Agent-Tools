@@ -239,12 +239,29 @@ class ProcessInfo(ApiModel):
     registry_id: int | None = None
 
 
+class CliCommand(ApiModel):
+    name: str = Field(description="'/' 뒤 이름 (예: compact)")
+    description: str = ""
+    description_en: str = Field("", description="CLI 가 준 원문 설명 (자주 쓰는 명령은 description 이 한국어)")
+    hint: str = Field("", description="인자 힌트 (예: [issue description])")
+    aliases: list[str] = []
+    builtin: bool = False
+
+
+class CliCommands(ApiModel):
+    engine: Engine
+    source: Literal["session", "cache", "default", "none"] = Field(
+        description="session: 그 대화의 CLI 가 준 것 · cache: 그 엔진이 마지막으로 준 것 · default: 기본 목록 · none: 없음 (Codex)")
+    commands: list[CliCommand]
+
+
 class Snapshot(ApiModel):
     session: CcSession | None
     process: dict[str, Any] | None = None
     pending: list[dict[str, Any]] = []
     live_turn: dict[str, Any] | None = None
     init: dict[str, Any] | None = None
+    commands: list[CliCommand] | None = None
 
 
 class CcSettings(ApiModel):
@@ -492,6 +509,12 @@ async def cli_instructions(profile: str = "", session_id: str | None = None, har
         return await asyncio.to_thread(instructions.build, profile or None, workdir, None, harness)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(500, f"지침을 만들지 못했습니다: {e}") from e
+
+
+@router.get("/commands", response_model=CliCommands,
+            summary="CLI 의 '/' 명령 목록 — 입력창에서 / 를 치면 보여 준다 (session_id 를 주면 그 대화의 CLI 기준)")
+async def cli_commands(engine: Engine = "claude", session_id: str | None = None) -> dict[str, Any]:
+    return _svc().manager.commands_for(engine, session_id)
 
 
 def _check_harness(harness_id: str) -> None:

@@ -1,4 +1,4 @@
-// 설정 · 프롬프트 › 하네스: 지침(AGENT.md) · 용도(agents/*.md) · 자료 폴더(사용설명서 · 에러 대처 같은 QA 자료)를 폴더별 목록으로 보고
+// 설정 · 프롬프트 › 하네스: 지침(AGENT.md) · 용도(agents/*.md) · 명령(commands/*.md — 입력창 '/') · 자료 폴더(사용설명서 · 에러 대처 같은 QA 자료)를 폴더별 목록으로 보고
 // 마크다운(위쪽 --- 머리말 --- + 본문)으로 고친다. 폴더마다 '대상 회사'를 정하면 그 회사 사람의 실행에만 그 폴더 자료가 쓰인다.
 // 모델이 로컬이든 OpenAI · Claude · Gemini 든 CLI 든 같은 파일이 그대로 적용된다.
 // 하네스 여러 개: scope '' = 공통(harness/), 그 밖에는 회사·프로젝트 하네스(harnesses/<이름>/) — 같은 모양으로 고친다.
@@ -44,6 +44,14 @@ companies: []
 ---
 
 이 폴더 자료에 대한 지침 (예: 이 장비 문의는 먼저 에러 코드를 묻는다).
+`;
+const COMMAND_TEMPLATE = `---
+description: 입력창 '/' 목록에 보일 설명
+argument-hint: "[에러 코드]"
+---
+
+$ARGUMENTS 에러를 하네스 자료에서 찾아 원인과 조치 순서를 정리해 주세요.
+자료에 없으면 없다고 말하고, 추측으로 채우지 마세요.
 `;
 
 function toBase64(file: File): Promise<string> {
@@ -112,6 +120,16 @@ export function HarnessTab({ scope = '', info, onChanged, onEdit, onDelete }: {
     if (!/^[a-z0-9][a-z0-9_-]{0,31}$/.test(name)) { ui.toast('용도 이름은 영어 소문자·숫자·-·_ 로 써 주세요', 'error'); return; }
     create(`agents/${name}.md`, ROLE_TEMPLATE(name));
   };
+  const newCommand = async () => {
+    const v = await ui.form({ title: `새 명령${info ? ` — ${info.title}` : ''}`, confirmText: '만들기',
+      message: "입력창에서 '/이름' 으로 부르면 본문이 요청으로 보내집니다 ($ARGUMENTS 자리에 이름 뒤에 친 글). "
+        + '로컬 · 외부 · CLI 어느 모델이든 똑같이 씁니다.' + (scope ? ' 이 하네스가 붙을 때만 보입니다.' : ''),
+      fields: [{ name: 'name', label: '명령 이름 (빈칸 없이)', placeholder: '예: 에러조치' }] });
+    const name = v?.name.trim().replace(/^\//, '');
+    if (!name) return;
+    if (/[\s/\\<>:"|?*]/.test(name)) { ui.toast('명령 이름에는 빈칸이나 / \\ : * ? " < > | 를 쓸 수 없습니다', 'error'); return; }
+    create(`commands/${name}.md`, COMMAND_TEMPLATE);
+  };
   const newFolder = async (parent = '') => {
     const v = await ui.form({ title: parent ? `'${parent}' 안에 폴더 만들기` : '자료 폴더 만들기', confirmText: '만들기',
       message: '예: 회사별(A사) 또는 장비별(X100) — 폴더 안에 폴더를 또 만들 수 있습니다.', fields: [{ name: 'name', label: '폴더 이름' }] });
@@ -150,12 +168,14 @@ export function HarnessTab({ scope = '', info, onChanged, onEdit, onDelete }: {
     if (!tree) return [];
     const byFolder = new Map<string, Doc[]>();
     tree.files.forEach((f) => byFolder.set(f.folder, [...(byFolder.get(f.folder) ?? []), f]));
-    return tree.folders.filter((f) => f.path !== '' && f.path !== 'agents').map((f) => ({ folder: f, files: byFolder.get(f.path) ?? [] }));
+    return tree.folders.filter((f) => f.path !== '' && f.path !== 'agents' && f.path !== 'commands').map((f) => ({ folder: f, files: byFolder.get(f.path) ?? [] }));
   }, [tree]);
   if (!tree) return <div className="muted">불러오는 중…</div>;
   const rootFolder = tree.folders.find((f) => f.path === '');
   const rootAgent = tree.files.find((f) => f.path === 'AGENT.md');
   const roles = tree.files.filter((f) => f.folder === 'agents');
+  const commands = tree.files.filter((f) => f.kind === 'command');
+  const commandsFolder = tree.folders.find((f) => f.path === 'commands');
   const rootDocs = tree.files.filter((f) => f.folder === '' && f.path !== 'AGENT.md');
   const current = tree.files.find((f) => f.path === open);
   const body = text.replace(/^---\n[\s\S]*?\n---\n?/, '');
@@ -201,6 +221,20 @@ export function HarnessTab({ scope = '', info, onChanged, onEdit, onDelete }: {
             <button type="button" className="btn link" onClick={exportRoles}>기존 용도 {tree.yaml_roles.length}개를 마크다운 파일로 옮기기</button>
           )}
         </Section>
+        <Section title="명령" right={<button type="button" className="btn small-btn" onClick={newCommand}>＋ 새 명령</button>}
+          help={`commands/<이름>.md — 입력창에서 '/이름' 으로 부르는 요청 틀 (Claude Code 의 사용자 명령과 같은 모양). 머리말: description · argument-hint, 본문의 $ARGUMENTS 자리에 뒤에 친 글`}>
+          {commands.map((f) => (
+            <button key={f.path} type="button" className={`h-file${open === f.path ? ' active' : ''}`} onClick={() => pick(f.path)} title={f.description || f.path}>
+              <span className="h-name mono">/{f.path.slice('commands/'.length).replace(/\.md$/i, '')}</span>
+              {f.description && <span className="muted small">{f.description}</span>}
+            </button>
+          ))}
+          {commands.length === 0 && <div className="muted small">아직 없습니다.</div>}
+          {commandsFolder && (
+            <div style={{ marginTop: 6 }}>{scopeChip(commandsFolder)}{' '}
+              <button type="button" className="icon-text" title="이 명령들을 쓸 대상 회사 정하기" onClick={() => setScopeOf(commandsFolder)}>대상</button></div>
+          )}
+        </Section>
         <Section title="자료 폴더" right={<button type="button" className="btn small-btn" onClick={() => newFolder()}>＋ 폴더</button>}
           help="사용설명서 · 에러 대처 같은 QA 자료. 에이전트는 목록만 보고 필요한 것을 찾아 읽는다.">
           {rootDocs.length > 0 && <div className="h-folder"><div className="h-folder-head"><b>(맨 위)</b></div>{rootDocs.map(fileRow)}</div>}
@@ -230,7 +264,7 @@ export function HarnessTab({ scope = '', info, onChanged, onEdit, onDelete }: {
           <Section title="파일을 고르세요">
             <div className="muted small" style={{ marginTop: 8 }}>
               왼쪽에서 지침 · 용도 · 자료를 고르면 여기서 마크다운으로 고칩니다. 위쪽 <code className="inline">---</code> 사이는 머리말
-              (title · description · tags / 용도는 name · description · tools / 폴더 지침은 companies), 그 아래가 본문입니다.
+              (title · description · tags / 용도는 name · description · tools / 명령은 description · argument-hint / 폴더 지침은 companies), 그 아래가 본문입니다.
             </div>
           </Section>
         ) : (

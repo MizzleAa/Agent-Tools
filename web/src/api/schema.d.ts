@@ -511,6 +511,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/claude-code/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CLI 의 '/' 명령 목록 — 입력창에서 / 를 치면 보여 준다 (session_id 를 주면 그 대화의 CLI 기준) */
+        get: operations["cli_commands_api_v1_claude_code_commands_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/claude-code/conversations": {
         parameters: {
             query?: never;
@@ -921,6 +938,23 @@ export interface paths {
         };
         /** Claude Code 연결 상태 (설치·CLI·로그인·프로세스) */
         get: operations["status_api_v1_claude_code_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 하네스 명령 (commands/*.md) — 입력창 '/' 목록. 공통 + 이 사람이 쓸 수 있는 하네스 전부 (화면이 붙는 하네스 것만 쓴다) */
+        get: operations["commands_api_v1_commands_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2691,6 +2725,57 @@ export interface components {
             /** Source */
             source: string;
         };
+        /** CliCommand */
+        CliCommand: {
+            /**
+             * Aliases
+             * @default []
+             */
+            aliases: string[];
+            /**
+             * Builtin
+             * @default false
+             */
+            builtin: boolean;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Description En
+             * @description CLI 가 준 원문 설명 (자주 쓰는 명령은 description 이 한국어)
+             * @default
+             */
+            description_en: string;
+            /**
+             * Hint
+             * @description 인자 힌트 (예: [issue description])
+             * @default
+             */
+            hint: string;
+            /**
+             * Name
+             * @description '/' 뒤 이름 (예: compact)
+             */
+            name: string;
+        };
+        /** CliCommands */
+        CliCommands: {
+            /** Commands */
+            commands: components["schemas"]["CliCommand"][];
+            /**
+             * Engine
+             * @enum {string}
+             */
+            engine: "claude" | "codex" | "gemini";
+            /**
+             * Source
+             * @description session: 그 대화의 CLI 가 준 것 · cache: 그 엔진이 마지막으로 준 것 · default: 기본 목록 · none: 없음 (Codex)
+             * @enum {string}
+             */
+            source: "session" | "cache" | "default" | "none";
+        };
         /** CliInfo */
         CliInfo: {
             /**
@@ -3347,6 +3432,32 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** HarnessCommand */
+        HarnessCommand: {
+            /**
+             * Body
+             * @description 보낼 요청 — '/이름' 뒤에 친 글이 $ARGUMENTS 자리에 들어간다 (없으면 끝에 붙는다)
+             */
+            body: string;
+            /** Description */
+            description: string;
+            /**
+             * Hint
+             * @description 인자 힌트 (머리말 argument-hint)
+             * @default
+             */
+            hint: string;
+            /**
+             * Name
+             * @description '/' 뒤 이름 (파일 이름)
+             */
+            name: string;
+            /**
+             * Scope
+             * @description 어느 하네스 ('' = 공통)
+             */
+            scope: string;
+        };
         /** HarnessDoc */
         HarnessDoc: {
             /** Description */
@@ -3360,7 +3471,7 @@ export interface components {
             folder: string;
             /**
              * Kind
-             * @description instructions(AGENT.md) · role(agents/*.md) · doc(자료)
+             * @description instructions(AGENT.md) · role(agents/*.md) · command(commands/*.md) · doc(자료)
              */
             kind: string;
             /** Modified */
@@ -5322,6 +5433,8 @@ export interface components {
         };
         /** Snapshot */
         Snapshot: {
+            /** Commands */
+            commands: components["schemas"]["CliCommand"][] | null;
             /** Init */
             init: {
                 [key: string]: unknown;
@@ -8113,6 +8226,65 @@ export interface operations {
             };
         };
     };
+    cli_commands_api_v1_claude_code_commands_get: {
+        parameters: {
+            query?: {
+                engine?: "claude" | "codex" | "gemini";
+                session_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCommands"];
+                };
+            };
+            /** @description 입력이 잘못됨 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 토큰이 없거나 허용되지 않은 Host */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 대상이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 지금은 할 수 없음 (실행 중 등) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     new_conversation_api_v1_claude_code_conversations_post: {
         parameters: {
             query?: never;
@@ -9910,6 +10082,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CcStatus"];
+                };
+            };
+            /** @description 입력이 잘못됨 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 토큰이 없거나 허용되지 않은 Host */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 대상이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description 지금은 할 수 없음 (실행 중 등) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    commands_api_v1_commands_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HarnessCommand"][];
                 };
             };
             /** @description 입력이 잘못됨 */

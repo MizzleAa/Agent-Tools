@@ -344,6 +344,7 @@ apis:
 harness/
   AGENT.md                    공통 지침 — 모든 실행의 시스템 지침에 붙는다
   agents/<역할>.md             역할 = 입력창의 용도 (머리말: name · description · tools / 본문 = 역할 지침)
+  commands/<이름>.md           입력창 '/이름' 명령 (머리말: description · argument-hint / 본문 = 보낼 요청, $ARGUMENTS = 뒤에 친 글)
   <폴더>/…/*.md                자료 — 사용설명서 · 에러 대처 · 점검 절차 같은 QA 자료 (머리말: title · description · tags)
   <폴더>/AGENT.md              (선택) 그 폴더 자료에 대한 지침 + 대상 회사 (companies: [A사]) — 비우면 모든 회사, 아래 폴더도 따른다
 ```
@@ -363,6 +364,11 @@ harness/
   모델 · 추론 · **하네스** · 용도 · 위치 · 승인 — 하네스를 고르면 그 하네스의 용도가 용도 목록에 더해진다 (이름이 같으면 고른 하네스 것).
   다른 하네스 자료의 경로는 `@<이름>/폴더/파일.md`. 워크플로 노드도 **하네스 + 용도**를 고른다 (비우면 입력창에서 고른 하네스).
   로컬 · API · CLI 모두 같은 하네스가 붙는다.
+- **입력창 '/' 명령** (`web/src/features/chat/slash.ts` · `SlashMenu.tsx`): 입력창 맨 앞에 `/` 를 치면 목록이 뜬다 (↑↓ · Enter 실행 · Tab 이름 채우기 · Esc).
+  ① 화면 명령 — `/new` `/model` `/effort` `/harness` `/role` `/workflow` `/approve` `/steps` (선택 칸을 바꿈), 로컬·API 대화는 `/usage` `/context` `/retry` `/stop`,
+  CLI 대화는 `/mode` `/rename` `/instructions` `/attach` ② 하네스 명령 — 붙는 하네스(공통 + 회사 + 고른 것)의 `commands/*.md` 를 펼쳐 요청으로 보냄 (어느 모델이든)
+  ③ 기본 요청 `/init` (폴더 지침 파일 만들기) · `/review` (검토) — 로컬·API · Codex ④ CLI 명령 — Claude Code(SDK `get_server_info`) · Gemini(ACP
+  `available_commands_update`)가 알려 준 것, 그대로 CLI 로 보냄 (`GET /api/v1/claude-code/commands` — 엔진별 마지막 목록을 남겨 새 대화에도). 이름이 겹치면 ①→②→③→④.
 
 ## 외부 AI 모델 · 로그인 사용 (고객사가 이 서버에 접속)
 

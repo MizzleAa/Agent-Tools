@@ -23,6 +23,7 @@ interface AppState {
   profiles: Schemas['ProfileSummary'][];
   harnesses: Schemas['HarnessChoice'][];   // 회사·프로젝트 하네스 (고르면 그 하네스의 용도가 더해진다)
   workflows: Schemas['WorkflowSummary'][];
+  commands: Schemas['HarnessCommand'][];   // 하네스 명령 (공통 + 쓸 수 있는 하네스 전부 — 입력창이 붙는 하네스 것만 쓴다)
   reloadCatalog: () => Promise<void>;
   threads: Thread[];
   reloadThreads: () => Promise<void>;
@@ -47,6 +48,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Schemas['ProfileSummary'][]>([]);
   const [workflows, setWorkflows] = useState<Schemas['WorkflowSummary'][]>([]);
   const [harnesses, setHarnesses] = useState<Schemas['HarnessChoice'][]>([]);
+  const [commands, setCommands] = useState<Schemas['HarnessCommand'][]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [choice, setModelChoice] = useStored('model-choice', '');
@@ -71,11 +73,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reloadCatalog = useCallback(async () => {
-    const [p, w, h] = await Promise.all([api.catalog.profiles(), api.catalog.workflows().catch(() => []),
-      api.catalog.harnesses().catch(() => [])]);
+    const [p, w, h, c] = await Promise.all([api.catalog.profiles(), api.catalog.workflows().catch(() => []),
+      api.catalog.harnesses().catch(() => []), api.catalog.commands().catch(() => [])]);
     setProfiles(p);
     setWorkflows(w);
     setHarnesses(h);
+    setCommands(c);
   }, []);
 
   const reloadThreads = useCallback(async () => {
@@ -101,7 +104,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     status, unreachable,
     modelReady: !unreachable && (ccChosen ? ccReady : external ? external.ready : status?.runtime.state === 'ok'),
     modelChoice, external, setModelChoice,
-    refreshStatus: poll, profiles, harnesses, workflows, reloadCatalog, threads, reloadThreads,
+    refreshStatus: poll, profiles, harnesses, workflows, commands, reloadCatalog, threads, reloadThreads,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

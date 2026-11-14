@@ -9,6 +9,7 @@ export type CcStatus = S['CcStatus'];
 export type CcSettings = S['CcSettings'];
 export type ProcessRow = S['ProcessRow'];
 export type Attachment = S['AttachmentOut'];
+export type CliCommand = S['CliCommand'];
 
 export class CcError extends Error {
   constructor(public readonly status: number, public readonly code: string, message: string, public readonly extra: Record<string, unknown> = {}) {
@@ -60,6 +61,9 @@ export const ccApi = {
   /** CLI 에 붙는 지침 (로컬·API 와 같은 '설정 · 프롬프트' + 하네스). session_id 를 주면 그 대화 기준 */
   instructions: (profile?: string, session_id?: string, harness?: string) =>
     cc(http.GET(`${P}/instructions`, { params: { query: { profile: profile ?? '', session_id: session_id ?? null, harness: harness ?? '' } } })),
+  /** CLI 의 '/' 명령 목록 — session_id 를 주면 그 대화의 CLI 가 준 것, 아니면 그 엔진이 마지막으로 준 것 */
+  commands: (engine: 'claude' | 'codex' | 'gemini', session_id?: string | null) =>
+    cc(http.GET(`${P}/commands`, { params: { query: { engine, session_id: session_id ?? null } } })),
   importSession: (project_id: string, claude_session_id: string) =>
     cc(http.POST(`${P}/projects/{project_id}/sessions/import`, { ...pid(project_id), body: { claude_session_id } })),
   sessions: () => cc(http.GET(`${P}/sessions`)),

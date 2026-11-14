@@ -1531,6 +1531,93 @@
         "title": "CliCandidate",
         "type": "object"
       },
+      "CliCommand": {
+        "properties": {
+          "aliases": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "builtin": {
+            "default": false,
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "description_en": {
+            "default": "",
+            "description": "CLI 가 준 원문 설명 (자주 쓰는 명령은 description 이 한국어)",
+            "title": "Description En",
+            "type": "string"
+          },
+          "hint": {
+            "default": "",
+            "description": "인자 힌트 (예: [issue description])",
+            "title": "Hint",
+            "type": "string"
+          },
+          "name": {
+            "description": "'/' 뒤 이름 (예: compact)",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "description_en",
+          "hint",
+          "aliases",
+          "builtin"
+        ],
+        "title": "CliCommand",
+        "type": "object"
+      },
+      "CliCommands": {
+        "properties": {
+          "commands": {
+            "items": {
+              "$ref": "#/components/schemas/CliCommand"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
+          "engine": {
+            "enum": [
+              "claude",
+              "codex",
+              "gemini"
+            ],
+            "title": "Engine",
+            "type": "string"
+          },
+          "source": {
+            "description": "session: 그 대화의 CLI 가 준 것 · cache: 그 엔진이 마지막으로 준 것 · default: 기본 목록 · none: 없음 (Codex)",
+            "enum": [
+              "session",
+              "cache",
+              "default",
+              "none"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine",
+          "source",
+          "commands"
+        ],
+        "title": "CliCommands",
+        "type": "object"
+      },
       "CliInfo": {
         "properties": {
           "candidates": {
@@ -2997,6 +3084,44 @@
         "title": "HarnessChoice",
         "type": "object"
       },
+      "HarnessCommand": {
+        "properties": {
+          "body": {
+            "description": "보낼 요청 — '/이름' 뒤에 친 글이 $ARGUMENTS 자리에 들어간다 (없으면 끝에 붙는다)",
+            "title": "Body",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "hint": {
+            "default": "",
+            "description": "인자 힌트 (머리말 argument-hint)",
+            "title": "Hint",
+            "type": "string"
+          },
+          "name": {
+            "description": "'/' 뒤 이름 (파일 이름)",
+            "title": "Name",
+            "type": "string"
+          },
+          "scope": {
+            "description": "어느 하네스 ('' = 공통)",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "hint",
+          "body",
+          "scope"
+        ],
+        "title": "HarnessCommand",
+        "type": "object"
+      },
       "HarnessDoc": {
         "properties": {
           "description": {
@@ -3013,7 +3138,7 @@
             "type": "string"
           },
           "kind": {
-            "description": "instructions(AGENT.md) · role(agents/*.md) · doc(자료)",
+            "description": "instructions(AGENT.md) · role(agents/*.md) · command(commands/*.md) · doc(자료)",
             "title": "Kind",
             "type": "string"
           },
@@ -7387,6 +7512,20 @@
       },
       "Snapshot": {
         "properties": {
+          "commands": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CliCommand"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commands"
+          },
           "init": {
             "anyOf": [
               {
@@ -7448,7 +7587,8 @@
           "process",
           "pending",
           "live_turn",
-          "init"
+          "init",
+          "commands"
         ],
         "title": "Snapshot",
         "type": "object"
@@ -11628,6 +11768,100 @@
         ]
       }
     },
+    "/api/v1/claude-code/commands": {
+      "get": {
+        "operationId": "cli_commands_api_v1_claude_code_commands_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "default": "claude",
+              "enum": [
+                "claude",
+                "codex",
+                "gemini"
+              ],
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "session_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CliCommands"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "입력이 잘못됨"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "토큰이 없거나 허용되지 않은 Host"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "대상이 없음"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "지금은 할 수 없음 (실행 중 등)"
+          }
+        },
+        "summary": "CLI 의 '/' 명령 목록 — 입력창에서 / 를 치면 보여 준다 (session_id 를 주면 그 대화의 CLI 기준)",
+        "tags": [
+          "claude-code"
+        ]
+      }
+    },
     "/api/v1/claude-code/conversations": {
       "post": {
         "operationId": "new_conversation_api_v1_claude_code_conversations_post",
@@ -13989,6 +14223,71 @@
         "summary": "Claude Code 연결 상태 (설치·CLI·로그인·프로세스)",
         "tags": [
           "claude-code"
+        ]
+      }
+    },
+    "/api/v1/commands": {
+      "get": {
+        "operationId": "commands_api_v1_commands_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HarnessCommand"
+                  },
+                  "title": "Response Commands Api V1 Commands Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "입력이 잘못됨"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "토큰이 없거나 허용되지 않은 Host"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "대상이 없음"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "지금은 할 수 없음 (실행 중 등)"
+          }
+        },
+        "summary": "하네스 명령 (commands/*.md) — 입력창 '/' 목록. 공통 + 이 사람이 쓸 수 있는 하네스 전부 (화면이 붙는 하네스 것만 쓴다)",
+        "tags": [
+          "catalog"
         ]
       }
     },

@@ -1,6 +1,7 @@
 // 세션 하나의 대화 화면 상태 + 서버 이벤트를 반영하는 순수 함수들.
 // 원본 기록은 Claude Code 세션 기록(REST /messages)이고, 실시간 이벤트는 그 뒤에 덧붙는다.
 // 같은 메시지는 uuid 로 중복을 없앤다 (스트림 uuid = 기록 uuid).
+import type { CliCommand } from './api';
 import type { InitInfo, NormMessage, PartialBlock, PermissionReq, ServerEvent, TurnResult } from './types';
 
 export interface Notice {
@@ -24,6 +25,7 @@ export interface ChatState {
   lastResult: TurnResult | null;
   lastPromptText: string;
   init: InitInfo | null;
+  commands: CliCommand[] | null;   // 이 대화의 CLI 가 알려 준 '/' 명령 (CLI 가 켜져야 온다)
   notices: Notice[];
   turnError: string | null;
 }
@@ -41,6 +43,7 @@ export const emptyChat = (): ChatState => ({
   lastResult: null,
   lastPromptText: '',
   init: null,
+  commands: null,
   notices: [],
   turnError: null,
 });
@@ -96,7 +99,8 @@ export function applyEvent(s: ChatState, ev: ServerEvent): ChatState {
   switch (ev.type) {
     case 'snapshot': {
       const lt = ev.data.live_turn;
-      if (!lt) return { ...s, pending: ev.data.pending, turn: null, partial: [], optimistic: null, init: ev.data.init ?? s.init };
+      const commands = ev.data.commands ?? s.commands;
+      if (!lt) return { ...s, commands, pending: ev.data.pending, turn: null, partial: [], optimistic: null, init: ev.data.init ?? s.init };
       const known = knownUuids(s);
       const live = [...s.live];
       const add = (m: NormMessage) => {
@@ -108,6 +112,7 @@ export function applyEvent(s: ChatState, ev: ServerEvent): ChatState {
       lt.messages.forEach(add);
       return {
         ...s,
+        commands,
         live,
         optimistic: lt.prompt.uuid ? null : lt.prompt,
         partial: lt.partial,
@@ -165,6 +170,8 @@ export function applyEvent(s: ChatState, ev: ServerEvent): ChatState {
     }
     case 'system.init':
       return { ...s, init: ev.data.init };
+    case 'commands':
+      return { ...s, commands: ev.data.commands };
     case 'notice':
       return { ...s, notices: pushNotice(s, ev.data.level, ev.data.text) };
     default:

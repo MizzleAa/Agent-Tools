@@ -10,8 +10,12 @@ import { useApp } from '@/state/AppState';
 import { useTitle } from '@/state/title';
 import { Icon, Spinner } from '@/ui/Icon';
 import { BaseDirSelect, useWorkBase } from '@/features/chat/BaseDirSelect';
-import { ccProblem, EFFORT_LABELS, HarnessSelect, ModelSelect, roleGroups, useCcStatus } from '@/features/chat/Composer';
+import { ccProblem, EFFORT_LABELS, harnessChoices, HarnessSelect, modelChoices, ModelSelect, pairChoices, roleChoices, roleGroups, useCcStatus,
+  useModelChoice } from '@/features/chat/Composer';
+import { cliCommands, harnessCommands, mergeCommands, type SlashCommand, templateCommands } from '@/features/chat/slash';
+import { useSlash } from '@/features/chat/SlashMenu';
 import { useUi } from '@/ui/UiProvider';
+import { ccApi, type CliCommand } from './api';
 import { InstructionsView } from './InstructionsView';
 import { connectEvents, disconnectEvents, importExternal, interrupt, loadExternal, openSession, patchSession, sendTo, startAuto, startProcess,
   stopProcess, terminateOrphan } from './actions';
@@ -94,7 +98,43 @@ export function CcChatView({ sessionId }: { sessionId: string | null }) {
     }
   }, [text, files, running, sending, problem, sessionId, base, model, mode, ccProfile, ccEffort, pickedHarness, engine, navigate]);
 
+  // ───────── '/' 명령: 웹 명령(아래 선택 칸) + 이 CLI 가 알려 준 명령 (CLI 가 켜지면 그 대화 것, 아니면 그 엔진이 마지막으로 준 것)
+  const [knownCmds, setKnownCmds] = useState<CliCommand[]>([]);
+  useEffect(() => {
+    let stale = false;
+    ccApi.commands(engine, sessionId).then((r) => { if (!stale) setKnownCmds(r.commands); }).catch(() => undefined);
+    return () => { stale = true; };
+  }, [engine, sessionId]);
+  const modelPick = useModelChoice({ running, value: session ? cliChoice(session.engine, session.model ?? '') : undefined,
+    onCcModel: session ? (m) => patchSession(session.id, { model: m || null }) : undefined });
+  const showInstructions = () => ui.sheet(`CLI 에 붙는 지침 — 용도 ${session ? session.profile || 'general' : ccProfile}`,
+    session ? <InstructionsView sessionId={session.id} /> : <InstructionsView profile={ccProfile} harness={pickedHarness} />);
+  const modeNow = session ? session.permission_mode : mode;
+  const webCmds: SlashCommand[] = [
+    { name: 'new', aliases: ['clear', 'reset', '새대화'], desc: `새 대화 (${label})`, kind: 'web', run: () => navigate('/') },
+    { name: 'model', aliases: ['모델'], desc: '모델 바꾸기', kind: 'web', choices: () => modelChoices(modelPick), run: modelPick.choose },
+    ...(engine !== 'gemini' ? [{ name: 'effort', aliases: ['추론'], desc: '추론 강도 (대화 중에 바꾸면 다음 메시지부터)', kind: 'web' as const,
+      choices: () => pairChoices(EFFORT_LABELS, session ? session.effort ?? '' : ccEffort),
+      run: (v: string) => (session ? patchSession(session.id, { effort: v as '' }) : setCcEffort(v)) }] : []),
+    ...(!session && app.harnesses.some((h) => !h.auto) ? [{ name: 'harness', aliases: ['하네스'], desc: '하네스 고르기 (새 대화)', kind: 'web' as const,
+      choices: () => harnessChoices(app.harnesses, pickedHarness), run: setHarness }] : []),
+    ...(!session ? [{ name: 'role', aliases: ['용도', 'profile'], desc: '용도 바꾸기 (새 대화 — 대화 중에는 그대로)', kind: 'web' as const,
+      choices: () => roleChoices(app.profiles, app.harnesses, pickedHarness, ccProfile), run: setCcProfile }] : []),
+    { name: 'mode', aliases: ['승인', 'permissions'], desc: '승인 방식', kind: 'web',
+      choices: () => modes.map(([v, l, d]) => ({ value: v, label: l.replace(/^[^:]+: /, ''), desc: d, current: v === modeNow })),
+      run: (v) => (session ? patchSession(session.id, { permission_mode: v as 'default' | 'acceptEdits' | 'plan' }) : setMode(v)) },
+    ...(session ? [{ name: 'rename', aliases: ['이름'], desc: '이 대화 이름 바꾸기', hint: '<새 이름>', kind: 'web' as const, needsArg: true,
+      run: (v: string) => patchSession(session.id, { title: v }) }] : []),
+    { name: 'instructions', aliases: ['지침'], desc: 'CLI 에 붙는 지침 보기 (설정 · 프롬프트 · 하네스)', kind: 'web', run: showInstructions },
+    { name: 'attach', aliases: ['첨부', 'file'], desc: '파일 첨부', kind: 'web', run: () => fileInput.current?.click() },
+  ];
+  const slash = useSlash(text, setText, mergeCommands(webCmds,
+    harnessCommands(app.commands, app.harnesses, session ? session.harness ?? '' : pickedHarness),
+    engine === 'codex' ? templateCommands('AGENTS.md') : [],   // Codex 는 명령 목록을 주지 않는다 — 기본 요청 명령으로
+    cliCommands(chat.commands ?? knownCmds, `CLI · ${label} — 보내면 CLI 가 실행`)), (t) => void send(t));
+
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slash.onKeyDown(e)) return;
     if (e.key === 'Escape' && running && sessionId) { e.preventDefault(); void interrupt(sessionId); return; }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); }
   };
@@ -182,7 +222,8 @@ export function CcChatView({ sessionId }: { sessionId: string | null }) {
               ))}
             </div>
           )}
-          <textarea ref={ta} rows={1} value={text} autoFocus placeholder={running ? '응답 생성 중… (Esc 로 중단)' : `${label} 에게 시켜보세요`}
+          {slash.menu}
+          <textarea ref={ta} rows={1} value={text} autoFocus placeholder={running ? '응답 생성 중… (Esc 로 중단)' : `${label} 에게 시켜보세요 ( / 를 치면 명령)`}
             onChange={(e) => setText(e.target.value)} onKeyDown={onKey}
             onPaste={(e) => {
               const imgs = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'));
@@ -216,8 +257,7 @@ export function CcChatView({ sessionId }: { sessionId: string | null }) {
               </select>
             </>)}
             <button type="button" className="mini-btn" title="CLI 에 붙는 지침 보기 (로컬·API 와 같은 설정 · 프롬프트 · 하네스)"
-              onClick={() => ui.sheet(`CLI 에 붙는 지침 — 용도 ${session ? session.profile || 'general' : ccProfile}`,
-                session ? <InstructionsView sessionId={session.id} /> : <InstructionsView profile={ccProfile} harness={pickedHarness} />)}><span>지침</span></button>
+              onClick={showInstructions}><span>지침</span></button>
             {session ? (
               <span className="chip mono cc-folder-chip" title={session.working_directory}><Icon name="folder" size={13} /> {session.working_directory.split(/[\\/]/).filter(Boolean).pop()}</span>
             ) : (

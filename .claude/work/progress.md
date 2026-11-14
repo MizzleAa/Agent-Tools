@@ -81,6 +81,24 @@ Agent-Tools = github.com/MizzleAa/Agent-Tools 빈 clone (main, 커밋 없음). �
 - [x] .venv 다시 만들기 (pip freeze 79개 그대로) (또는 옮겨서 고치기) · web node_modules
 - [x] 절대 경로 고치기 (DB workdir · CLAUDE.md · 문서 · 설정) + Claude 메모리 새 프로젝트 폴더로 복사
 - [x] 정상 동작 확인: pytest 664 통과 · vitest 26 · tsc · build · 서버 켜기(작업 스케줄러, 03:13) · 화면(8766) · 모델 서버(health ok) · CLI 3종 감지
-- [ ] 불필요한 것 지우기 (.playwright-mcp · __pycache__ · .pytest_cache · 잠금 파일 등)
-- [ ] git: .gitignore 정리 · 비밀값/큰 파일 점검 · 커밋 (push 는 사용자 확인 뒤)
+- [x] 불필요한 것 지우기 (코드 폴더 __pycache__ · .pytest_cache — workspace/ 는 사용자 작업 결과라 그대로)
+- [x] git: .gitignore 정리(connections.yaml · .claude 잠금/로컬 설정 · *.log · .env) · 사내 IP/시스템 이름 가림 · 첫 커밋 e6c572a (312개, 12MB)
+- [ ] 새로 clone 해서 pytest 전체 (스크래치 clone_check) → push 는 사용자 확인 뒤
 - [ ] 옛 폴더 C:\workspace\Agent 정리 (사용자 확인 뒤) · 보고
+
+---
+
+# '/' 명령어 (2026-11-14 요청: "웹에서도 클로드처럼 / 치면 명령어 나왔으면" → "진행 바랍니다" = CLI + 로컬·API 둘 다)
+
+입력창 맨 앞 '/' → 위로 목록, 글자로 좁히기, ↑↓ · Enter/Tab 고르기 · Esc 닫기.
+CLI 명령(그대로 CLI 로 보냄) + 웹 명령(입력창 선택 칸 바꾸기: 새대화·모델·추론·하네스·용도·워크플로·승인·스텝·지침).
+
+- [x] 조사: SDK get_server_info()['commands'] 모양 (스크래치 폴더에서 실제 CLI 초기화만) · Gemini available_commands_update 모양
+- [x] 백엔드: Claude 명령 목록(연결 직후 get_server_info) · Gemini available_commands_update → runner.commands, init 에 싣기, 엔진별 마지막 목록 캐시
+- [x] API: 새 대화용 명령 목록 (GET /claude-code/commands?engine=) · 계약 export + gen:api · 테스트
+- [x] 화면: slash.ts (목록 거르기 · 순수 함수 + vitest) · SlashMenu 부품 · 로컬·API Composer 에 웹 명령 · CcChatView 에 CLI 명령 + 웹 명령
+- [x] (도중 요청 "클로드 말고 로컬 이런 것도?") 로컬·API·Codex 에도 실제 동작 명령: 하네스 commands/*.md (모든 모델 — GET /commands,
+      설정 › 하네스 '명령' 칸) · 기본 요청 /init · /review · 로컬 /usage · /context · /retry · /stop
+- [x] 확인: pytest 667 통과 · vitest 33 · tsc · build · 시험 서버(8766) 화면 (로컬 · Claude 실제 CLI 목록 · Codex · 하네스 명령 펼쳐 보내기 · /stop · /usage · /context)
+      · 관리 서버 재시작 12:51 (실행·CLI 세션 없음 확인, auth/me 200 · llama ok)
+- [x] 보고 · 설명서/README · cron 지우기 — 끝 (2026-11-14 12:55)

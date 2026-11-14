@@ -2,7 +2,7 @@
 // 모델이 CLI · Claude Code 면 같은 자리에 CLI 대화 화면(features/claudecode)을 그린다: / = 새 대화, /cc/<세션 id> = 그 세션
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { api, type RunEvent, type Schemas } from '@/api';
+import { api, type EventOf, type RunEvent, type Schemas } from '@/api';
 import { firstLine, greeting } from '@/lib/format';
 import { SUGGEST } from '@/lib/labels';
 import { useStored } from '@/lib/storage';
@@ -16,6 +16,7 @@ import { useUi } from '@/ui/UiProvider';
 import { useWorkBase } from './BaseDirSelect';
 import { Composer, type ComposerOptions } from './Composer';
 import { ModelBanner } from './ModelBanner';
+import type { SlashCommand } from './slash';
 import { type ContinueOptions, TurnView } from './TurnView';
 
 interface Turn { runId: string; events: RunEvent[]; live: boolean }
@@ -153,6 +154,41 @@ function AgentChatView() {
     if (current) await api.runs.cancel(current.runId).catch(ui.error);
   };
 
+  // ───────── '/' 명령 중 이 대화를 보는 것 (나머지는 Composer: 선택 칸 · 하네스 명령 · /init · /review)
+  const finals = turns.flatMap((t) => t.events.filter((e): e is EventOf<'Final'> => e.type === 'Final'));
+  const lastCall = turns.flatMap((t) => t.events).filter((e): e is EventOf<'LLMCall'> => e.type === 'LLMCall').pop();
+  const ctxLimit = app.external ? app.external.context_length : app.status?.runtime.n_ctx ?? null;
+  const showUsage = () => {
+    if (!finals.length) { ui.toast('아직 끝난 작업이 없습니다.'); return; }
+    const sum = (k: 'steps' | 'prompt_tokens' | 'completion_tokens' | 'seconds') => finals.reduce((a, f) => a + f[k], 0);
+    ui.sheet('이 대화의 사용량', (
+      <div className="slash-sheet">
+        <div><b>{finals.length}</b>번 요청 · 스텝 <b>{sum('steps')}</b> · 걸린 시간 <b>{Math.round(sum('seconds'))}</b>초</div>
+        <div>입력 토큰 <b>{sum('prompt_tokens').toLocaleString()}</b> · 출력 토큰 <b>{sum('completion_tokens').toLocaleString()}</b></div>
+        <div className="muted small">외부 모델은 이 토큰 수만큼 공급사 요금이 듭니다 (로컬 모델은 이 서버의 GPU 시간).</div>
+      </div>
+    ));
+  };
+  const showContext = () => {
+    if (!lastCall) { ui.toast('아직 모델을 부르지 않았습니다 — 보내고 나면 대화가 얼마나 찼는지 보입니다.'); return; }
+    const pct = ctxLimit ? Math.round((lastCall.prompt_tokens / ctxLimit) * 100) : null;
+    ui.sheet('컨텍스트 사용량', (
+      <div className="slash-sheet">
+        <div>마지막 모델 호출의 입력 <b>{lastCall.prompt_tokens.toLocaleString()}</b> 토큰
+          {ctxLimit ? <> / 모델 컨텍스트 <b>{ctxLimit.toLocaleString()}</b> (<b>{pct}%</b>)</> : null}</div>
+        {pct !== null && <div className="bar"><span style={{ width: `${Math.min(pct, 100)}%` }} /></div>}
+        <div className="muted small">지침 · 도구 설명 · 이 대화 내용 · 도구 결과가 모두 들어갑니다. 가득 차면 오래된 도구 결과 · 기록부터 줄여서 보냅니다 (지침 · 요청은 그대로) — 길어지면 /new 로 새 대화를 시작하세요.</div>
+      </div>
+    ));
+  };
+  const lastTask = turns.length ? turns[turns.length - 1].events.find((e): e is EventOf<'RunStarted'> => e.type === 'RunStarted')?.task : undefined;
+  const chatCommands: SlashCommand[] = [
+    { name: 'usage', aliases: ['사용량', 'cost'], desc: '이 대화의 사용량 (요청 · 스텝 · 토큰 · 시간)', kind: 'web', run: showUsage },
+    { name: 'context', aliases: ['컨텍스트'], desc: '컨텍스트 사용량 (대화가 모델 한도에서 얼마나 찼는지)', kind: 'web', run: showContext },
+    ...(lastTask && !current ? [{ name: 'retry', aliases: ['다시'], desc: '마지막 요청을 다시 보내기', kind: 'web' as const, run: () => void send(lastTask) }] : []),
+    ...(current ? [{ name: 'stop', aliases: ['중지'], desc: '실행 중인 작업 중지', kind: 'web' as const, run: () => void stop() }] : []),
+  ];
+
   const empty = turns.length === 0;
   return (
     <section className={`view active${empty ? ' empty' : ''}`} id="view-chat">
@@ -169,7 +205,7 @@ function AgentChatView() {
       <div className="composer-wrap">
         <ModelBanner flash={flash} />
         <Composer text={text} setText={setText} options={options} setOption={setOption} running={!!current}
-          onSend={() => send()} onStop={stop} isNew={!rootId} />
+          onSend={(m) => send(m)} onStop={stop} isNew={!rootId} extraCommands={chatCommands} />
         <div className="suggestions">
           {(SUGGEST[choice] ?? []).map((s) => <button key={s} type="button" className="suggestion" onClick={() => setText(s)}>{s}</button>)}
         </div>

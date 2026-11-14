@@ -139,6 +139,7 @@ class Runner:
     dead: asyncio.Event = field(default_factory=asyncio.Event)
     engine: str = "claude"
     driver: Any = None      # Codex · Gemini 드라이버 (engines.py) — Claude 는 None (handle.client 를 쓴다)
+    commands: list[dict[str, Any]] | None = None   # 이 CLI 의 '/' 명령 (commands.py 모양) — 입력창 목록
 
 
 @dataclass
@@ -222,6 +223,9 @@ class _EngineSink:
 
     def remember_models(self, models: list[dict[str, Any]]) -> None:
         self.m.db.set_setting(f"{self.r.engine}_models", models)
+
+    def commands(self, commands: list[dict[str, Any]]) -> None:
+        self.m._set_commands(self.r, commands)
 
 
 class SessionManager:
@@ -346,7 +350,44 @@ class SessionManager:
             "pending": [p.to_dict() for p in r.pending.values()] if r else [],
             "live_turn": r.turn.to_dict() if r and r.turn else None,
             "init": r.init_info if r else None,
+            "commands": r.commands if r else None,
         }
+
+    # =====================================================================
+    # '/' 명령 목록 (commands.py)
+    # =====================================================================
+    def _set_commands(self, r: Runner, commands: list[dict[str, Any]]) -> None:
+        r.commands = commands
+        if commands:   # 다음 새 대화(CLI 를 띄우기 전)에도 보여 주게 엔진별로 남긴다
+            self.db.set_setting(f"{r.engine}_commands", commands)
+        self.hub.publish("commands", r.session_id, {"commands": commands})
+
+    def commands_for(self, engine: str, session_id: str | None = None) -> dict[str, Any]:
+        """{engine, source, commands} — source: session(그 대화의 CLI 가 준 것) · cache(그 엔진이 마지막으로 준 것) · default · none."""
+        from . import commands
+
+        if session_id:
+            engine = self._require_session(session_id).get("engine") or "claude"
+            r = self.runners.get(session_id)
+            if r and r.commands is not None and not r.dead.is_set():
+                return {"engine": engine, "source": "session", "commands": r.commands}
+        cached = self.db.get_settings().get(f"{engine}_commands")
+        if isinstance(cached, list) and cached:
+            return {"engine": engine, "source": "cache", "commands": commands.ordered(cached)}
+        base = commands.defaults(engine)
+        return {"engine": engine, "source": "default" if base else "none", "commands": base}
+
+    async def _load_claude_commands(self, r: Runner) -> None:
+        """Claude Code: 연결할 때 받은 초기화 응답에 명령 목록이 있다 (메시지를 보내기 전에도)."""
+        from . import commands
+
+        try:
+            info = await r.handle.client.get_server_info() if r.handle else None
+        except Exception as e:  # noqa: BLE001 - 목록을 못 받아도 대화는 된다
+            log.info("get_server_info failed session=%s: %s", r.session_id, e)
+            return
+        if isinstance(info, dict) and isinstance(info.get("commands"), list):
+            self._set_commands(r, commands.from_claude(info["commands"]))
 
     # =====================================================================
     # 프로세스 연결
@@ -441,6 +482,7 @@ class SessionManager:
                 raise AppError(502, "cli_start_failed", f"Claude Code CLI 를 시작하지 못했습니다: {e}", {"stderr": tail}) from e
             runner.reader = asyncio.create_task(self._read_loop(runner))
             self.runners[session_id] = runner
+            await self._load_claude_commands(runner)
             self._publish_session(session_id)
             return runner
 

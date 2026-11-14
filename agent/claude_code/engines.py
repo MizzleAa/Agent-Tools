@@ -546,6 +546,7 @@ class Sink(Protocol):
     def completed(self, result: dict[str, Any]) -> None: ...
     def exited(self, err: BaseException | None) -> None: ...
     def remember_models(self, models: list[dict[str, Any]]) -> None: ...
+    def commands(self, commands: list[dict[str, Any]]) -> None: ...
 
 
 def assistant(blocks: list[dict[str, Any]], model: str | None = None) -> dict[str, Any]:
@@ -895,10 +896,11 @@ class GeminiDriver(Driver):
         self.texts.clear()
         self.started_at = time.time()
         body = text
-        if self.needs_instructions and self.instructions:
-            body = (f"{self.PREFIX}\n아래는 이 서버 관리자가 정한 지침이다. 이 대화 내내 따른다 (사용자에게 다시 보여 주지 않는다).\n\n"
-                    f"{self.instructions}\n</agent-server-instructions>\n\n{text}")
-        self.needs_instructions = False
+        if not text.lstrip().startswith("/"):   # '/' 명령은 맨 앞에 와야 CLI 가 알아본다 — 지침은 다음 일반 메시지에 붙인다
+            if self.needs_instructions and self.instructions:
+                body = (f"{self.PREFIX}\n아래는 이 서버 관리자가 정한 지침이다. 이 대화 내내 따른다 (사용자에게 다시 보여 주지 않는다).\n\n"
+                        f"{self.instructions}\n</agent-server-instructions>\n\n{text}")
+            self.needs_instructions = False
         blocks: list[dict[str, Any]] = [{"type": "text", "text": body}] if body else []
         blocks += [{"type": "image", "mimeType": im["mime"], "data": im["data"]} for im in images]
         self.prompt_task = asyncio.create_task(self._prompt(blocks))
@@ -995,10 +997,16 @@ class GeminiDriver(Driver):
                                                status == "failed")]))
 
     def _on_note(self, method: str, p: dict[str, Any]) -> None:
-        if method != "session/update" or self.loading:
+        if method != "session/update":
             return
         u = p.get("update") or {}
         kind = u.get("sessionUpdate")
+        if kind == "available_commands_update":   # '/' 명령 목록 — 기록을 이어받는 중에 와도 받는다
+            from . import commands
+            self.sink.commands(commands.from_gemini(u.get("availableCommands")))
+            return
+        if self.loading:
+            return
         content = u.get("content") or {}
         if kind == "agent_message_chunk" and content.get("type") == "text":
             text = content.get("text") or ""

@@ -3,6 +3,7 @@
     harness/
       AGENT.md                  공통 지침 — 모든 실행의 시스템 지침에 붙는다
       agents/<역할>.md           역할 (위쪽 --- yaml --- 에 name · description · tools … / 본문 = 역할 지침)
+      commands/<이름>.md         입력창 '/<이름>' 명령 (머리말 description · argument-hint / 본문 = 보낼 요청, $ARGUMENTS = 뒤에 친 글)
       <폴더>/…/*.md              자료. 에이전트는 목록만 보고 search_knowledge · read_knowledge 로 필요한 것만 꺼내 읽는다
       <폴더>/AGENT.md            (선택) 그 폴더의 지침 + 대상 회사 (companies: [회사 이름…]) — 비우면 모두. 아래 폴더도 따른다
 
@@ -39,6 +40,8 @@ from agent import config
 HARNESS_DIR = config.ROOT / "harness"
 AGENT_MD = "AGENT.md"
 ROLES = "agents"
+COMMANDS = "commands"
+_COMMAND_NAME = re.compile(r"^[^\s/\\]+$")   # '/이름 인자' 로 부르므로 빈칸 · 경로 문자는 안 된다
 PROJECT_FILES = ("AGENT.md", "AGENTS.md", "CLAUDE.md", "GEMINI.md")   # 작업 폴더 안의 지침 파일 (먼저 찾은 것부터)
 MAX_FILE_BYTES = 2_000_000
 _FRONT = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|\Z)", re.S)
@@ -142,7 +145,7 @@ def parse_ref(path: str) -> tuple[str, str]:
 class Doc:
     path: str                      # 하네스 기준 상대 경로 (posix)
     folder: str                    # '' = 맨 위
-    kind: str                      # instructions(AGENT.md) · role(agents/*.md) · doc(자료)
+    kind: str                      # instructions(AGENT.md) · role(agents/*.md) · command(commands/*.md) · doc(자료)
     title: str
     description: str = ""
     tags: list[str] = field(default_factory=list)
@@ -194,7 +197,7 @@ def scan(scope: str = "") -> tuple[list[Folder], list[Doc]]:
             except OSError:
                 continue
             meta, body = split_front(text)
-            kind = "instructions" if name == AGENT_MD else "role" if rel == ROLES else "doc"
+            kind = "instructions" if name == AGENT_MD else "role" if rel == ROLES else "command" if rel == COMMANDS else "doc"
             st = path.stat()
             docs.append(Doc(path=rel_of(path, scope), folder=rel, kind=kind, title=_title(meta, body, path),
                             description=str(meta.get("description") or ""),
@@ -443,6 +446,27 @@ def project_instructions(workdir: Path | None, stop_at: Path | None, max_chars: 
     parts = [f"### {f.parent.name or f.parent}/{f.name}\n{split_front(t)[1].strip()}" for f, t in reversed(found) if t.strip()]
     text = "\n\n".join(parts)
     return text[:max_chars] + ("\n…(지침 파일이 길어 뒷부분을 줄였습니다)" if len(text) > max_chars else "")
+
+
+# ───────────────────────── 명령 (commands/*.md)
+
+def commands(audience: str | None, scopes: list[str] | None = None) -> list[dict[str, Any]]:
+    """입력창 '/<이름>' 명령 [{name, description, hint, body, scope}] — 모양은 Claude Code 의 .claude/commands/*.md 와 같다.
+    화면이 본문을 펼쳐(인자는 $ARGUMENTS 자리에) 요청으로 보내므로 모델(로컬 · 외부 · CLI)과 상관없이 같게 쓴다.
+    대상 회사는 자료처럼 폴더(commands/ 또는 그 위) 설정을 따른다."""
+    out = []
+    for d in visible_docs(audience, scopes):
+        name = Path(d.path).stem
+        if d.kind != "command" or not _COMMAND_NAME.match(name):
+            continue
+        try:
+            meta, body = split_front((root(d.scope) / d.path).read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+        hint = meta.get("argument-hint") or meta.get("argument_hint") or ""
+        out.append({"name": name, "description": str(meta.get("description") or d.title), "hint": str(hint),
+                    "body": body.strip(), "scope": d.scope})
+    return out
 
 
 # ───────────────────────── 역할 (agents/*.md)

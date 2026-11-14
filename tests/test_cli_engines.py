@@ -156,3 +156,25 @@ def test_codex_command_and_patch_shapes():
     name, inp = engines._codex_patch([{"path": "a.py", "kind": {"type": "update", "move_path": None}, "diff": "@@ -1 +1 @@"}])
     assert name == "Patch" and inp["changes"][0]["kind"] == "update"
     assert engines._gemini_tool({"kind": "execute", "title": "ls"})[::2] == ("Bash", "command")
+
+
+def test_gemini_slash_commands_and_first_message_command(cc, fake, tmp_path):  # noqa: F811
+    """Gemini 가 알려 준 '/' 명령을 목록으로, 첫 메시지가 '/' 명령이면 지침을 앞에 붙이지 않고 다음 메시지에 붙인다."""
+    pid = project(cc, tmp_path / "p")
+    sid = cc.post(f"{B}/projects/{pid}/sessions", json={"engine": "gemini", "profile": "coder"}).json()["id"]
+    cc.post(f"{B}/sessions/{sid}/messages", json={"text": "/memory show", "attachments": []})
+    p = pending(cc, wait(cc, sid, lambda x: x["status"] == "WAITING_FOR_PERMISSION")["id"])
+    cc.post(f"{B}/sessions/{sid}/permissions/{p['id']}", json={"behavior": "deny"})
+    wait(cc, sid, lambda x: x["status"] == "COMPLETED")
+    assert fake("session/prompt")[0]["prompt"][0]["text"] == "/memory show"
+    got = cc.get(f"{B}/commands", params={"session_id": sid}).json()
+    assert got["engine"] == "gemini" and got["source"] == "session"
+    assert [(c["name"], c["hint"]) for c in got["commands"]] == [("memory", ""), ("restore", "<checkpoint>")]
+    cc.post(f"{B}/sessions/{sid}/messages", json={"text": "파일 만들어", "attachments": []})
+    p = pending(cc, wait(cc, sid, lambda x: x["status"] == "WAITING_FOR_PERMISSION")["id"])
+    cc.post(f"{B}/sessions/{sid}/permissions/{p['id']}", json={"behavior": "deny"})
+    wait(cc, sid, lambda x: x["status"] == "COMPLETED" and len(fake("session/prompt")) == 2)
+    second = fake("session/prompt")[1]["prompt"][0]["text"]
+    assert second.startswith("<agent-server-instructions>") and "ABC-9" in second and second.endswith("파일 만들어")
+    cc.post(f"{B}/sessions/{sid}/process/stop")
+    assert cc.get(f"{B}/commands", params={"engine": "gemini"}).json()["source"] == "cache"

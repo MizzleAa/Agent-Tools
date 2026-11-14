@@ -1,4 +1,4 @@
-"""입력창에서 고르는 것: 하네스 목록(과 그 용도), 용도(프로필) 목록, 워크플로 목록."""
+"""입력창에서 고르는 것: 하네스 목록(과 그 용도), 용도(프로필) 목록, 워크플로 목록, 하네스 명령('/' 목록)."""
 
 from __future__ import annotations
 
@@ -27,6 +27,14 @@ class HarnessChoice(ApiModel):
     description: str
     auto: bool = Field(description="이 사람의 회사가 대상인 회사 하네스 — 고르지 않아도 늘 붙는다")
     roles: list[ProfileSummary] = Field(description="이 하네스의 용도 (고르면 입력창 용도 목록에 더해진다)")
+
+
+class HarnessCommand(ApiModel):
+    name: str = Field(description="'/' 뒤 이름 (파일 이름)")
+    description: str
+    hint: str = Field("", description="인자 힌트 (머리말 argument-hint)")
+    body: str = Field(description="보낼 요청 — '/이름' 뒤에 친 글이 $ARGUMENTS 자리에 들어간다 (없으면 끝에 붙는다)")
+    scope: str = Field(description="어느 하네스 ('' = 공통)")
 
 
 class WorkflowNodeSummary(ApiModel):
@@ -76,6 +84,14 @@ def harnesses() -> list[HarnessChoice]:
         out.append(HarnessChoice(id=sc.id, title=sc.title, kind=sc.kind, description=sc.description,
                                  auto=sc.id in auto, roles=roles))
     return out
+
+
+@router.get("/commands", response_model=list[HarnessCommand],
+            summary="하네스 명령 (commands/*.md) — 입력창 '/' 목록. 공통 + 이 사람이 쓸 수 있는 하네스 전부 (화면이 붙는 하네스 것만 쓴다)")
+def commands() -> list[HarnessCommand]:
+    audience = deps.settings_for(deps.user()).audience
+    scopes = ["", *(sc.id for sc in harness.list_scopes() if harness.usable(sc.id, audience))]
+    return [HarnessCommand(**c) for c in harness.commands(audience, scopes)]
 
 
 @router.get("/workflows", response_model=list[WorkflowSummary], summary="워크플로 목록 (로그인 사용: 노드 용도가 모두 허용된 것만)")

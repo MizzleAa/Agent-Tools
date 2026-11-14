@@ -259,3 +259,52 @@ def test_session_profile_effort_and_cli_options(cc, tmp_path, monkeypatch):
 
     svc.db.update_session(s["id"], has_transcript=True)
     assert cc.patch(f"{B}/sessions/{s['id']}", json={"profile": "general"}).status_code == 409   # 시작한 대화의 용도는 고정
+
+
+def test_slash_commands_from_cli_cached_per_engine(cc, tmp_path, monkeypatch):
+    """입력창 '/' 목록: CLI 를 띄우기 전엔 기본 목록, 띄우면 그 CLI 가 준 목록(숨길 것 빼고) → 엔진별로 남겨 다음 새 대화에도."""
+    import asyncio
+
+    from agent.claude_code import manager as mgr
+    from agent.claude_code.cli import CliInfo
+    from agent.claude_code.procs import ProcessHandle
+
+    first = cc.get(f"{B}/commands", params={"engine": "claude"}).json()
+    assert first["source"] == "default" and "compact" in [c["name"] for c in first["commands"]]
+    assert cc.get(f"{B}/commands", params={"engine": "codex"}).json() == {"engine": "codex", "source": "none", "commands": []}
+
+    class FakeClient:
+        async def get_server_info(self):
+            return {"commands": [
+                {"name": "compact", "description": "Free up context", "argumentHint": "<instructions>", "builtin": True},
+                {"name": "my-cmd", "description": "custom (project)", "argumentHint": "", "aliases": ["mc"]},
+                {"name": "heapdump", "description": "Dump the JS heap", "builtin": True},
+                {"name": "agents", "description": "(removed) Ask Claude", "builtin": True},
+                {"name": "__remote-workflow", "description": "internal", "builtin": True}]}
+
+        async def receive_messages(self):
+            await asyncio.Event().wait()
+            yield
+
+        async def disconnect(self):
+            pass
+
+    svc = service.get_service()
+    monkeypatch.setattr(svc.locator, "locate", lambda *a, **k: CliInfo(found=True, path="claude.exe", source="test", version="0"))
+
+    async def fake_start(session_id, options, version):
+        return ProcessHandle(session_id, FakeClient(), None, None, None, "claude.exe", "0", status="READY")
+
+    monkeypatch.setattr(svc.manager.procs, "start", fake_start)
+    monkeypatch.setattr(mgr, "external_session_holders", lambda *a, **k: [])
+    sid = cc.post(f"{B}/projects/{project(cc, tmp_path / 'p')}/sessions", json={}).json()["id"]
+    assert cc.post(f"{B}/sessions/{sid}/process/start", json={"force": False}).status_code == 200
+    got = cc.get(f"{B}/commands", params={"session_id": sid}).json()
+    assert got["source"] == "session" and [c["name"] for c in got["commands"]] == ["compact", "my-cmd"]
+    compact = got["commands"][0]
+    assert compact["hint"] == "<instructions>" and compact["builtin"] and compact["description_en"] == "Free up context"
+    assert "요약" in compact["description"] and got["commands"][1]["aliases"] == ["mc"]
+    assert cc.get(f"{B}/sessions/{sid}/snapshot").json()["commands"] == got["commands"]
+    cc.post(f"{B}/sessions/{sid}/process/stop")
+    later = cc.get(f"{B}/commands", params={"engine": "claude"}).json()
+    assert later["source"] == "cache" and later["commands"] == got["commands"]

@@ -101,6 +101,8 @@ export const api = {
     profiles: () => unwrap(http.GET('/api/v1/profiles')),
     harnesses: () => unwrap(http.GET('/api/v1/harnesses')),
     workflows: () => unwrap(http.GET('/api/v1/workflows')),
+    /** 하네스 명령 (commands/*.md) — 입력창 '/' 목록 */
+    commands: () => unwrap(http.GET('/api/v1/commands')),
   },
   system: {
     status: () => unwrap(http.GET('/api/v1/status')),

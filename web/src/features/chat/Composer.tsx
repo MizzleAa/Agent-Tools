@@ -10,6 +10,8 @@ import { useAuth } from '@/state/Auth';
 import { Icon } from '@/ui/Icon';
 import { useUi } from '@/ui/UiProvider';
 import { BaseDirSelect } from './BaseDirSelect';
+import { harnessCommands, mergeCommands, type SlashChoice, type SlashCommand, templateCommands } from './slash';
+import { useSlash } from './SlashMenu';
 
 const MODEL_STATE: Record<string, string> = { ready: '', downloading: ' (내려받는 중)', missing: ' (파일 없음)' };
 
@@ -53,11 +55,38 @@ export const EFFORT_LABELS: [string, string][] = [['', '추론: 기본'], ['low'
   ['xhigh', '추론: 아주 높음'], ['max', '추론: 최대']];
 const LOCAL_EFFORTS: [string, string][] = [['', '추론: 기본'], ['low', '추론: 낮음 (빠르게)'], ['high', '추론: 높음 (생각 켬)']];
 
+/** 추론 강도 단계: 외부 모델은 공급사 단계 ('아주 높음' · '최대'는 Claude 만), 로컬은 기본 · 낮음 · 높음 */
+const effortLevels = (chosen: ReturnType<typeof useApp>['external']) =>
+  !chosen ? LOCAL_EFFORTS : EFFORT_LABELS.filter(([v]) => chosen.kind === 'anthropic' || !['xhigh', 'max'].includes(v));
+
+// ───────── '/' 명령의 고를 값 (선택 칸과 같은 목록) — CLI 입력창(CcChatView)도 쓴다
+export const pairChoices = (pairs: [string, string][], current: string): SlashChoice[] =>
+  pairs.map(([value, label]) => ({ value, label: label.replace(/^[^:]+: /, ''), current: value === current }));
+
+export function harnessChoices(harnesses: HarnessChoice[], current: string): SlashChoice[] {
+  const pickable = harnesses.filter((h) => !h.auto);
+  return [{ value: '', label: '공통', desc: '공통 하네스만', current: !current },
+    ...pickable.map((h) => ({ value: h.id, label: `${h.kind === 'company' ? '🏢' : '📂'} ${h.title}`, desc: h.description, current: h.id === current }))];
+}
+
+export function roleChoices(profiles: { name: string; description: string }[], harnesses: HarnessChoice[], harness: string, current: string): SlashChoice[] {
+  const { extra, shared } = roleGroups(profiles, harnesses, harness);
+  return [...extra.flatMap((h) => h.roles.map((p) => ({ value: p.name, label: p.name, desc: `${h.title} · ${p.description}`, current: p.name === current }))),
+    ...shared.map((p) => ({ value: p.name, label: p.name, desc: p.description, current: p.name === current }))];
+}
+
+const APPROVE: [string, string][] = [['none', '승인: 매번 묻기'], ['writes', '승인: 파일 쓰기 자동'], ['all', '승인: 전부 자동']];
+const STEPS: [string, string][] = [['20', '스텝 20'], ['50', '스텝 50'], ['100', '스텝 100'], ['0', '스텝 무제한']];
+
 export { ccProblem };
 export const useCcStatus = () => useCc((s) => s.status);
 
-/** 모델 고르기: 로컬 (이 서버) · 외부 API 연결 · CLI · Claude Code (관리자만). value/onCcModel 은 CLI 대화 안에서 세션 모델을 바꿀 때 */
-export function ModelSelect({ running, value, onCcModel }: { running: boolean; value?: string; onCcModel?: (model: string) => void }) {
+export interface ModelOpt { value: string; label: string; disabled?: boolean; title?: string }
+export interface ModelGroup { label: string | null; options: ModelOpt[] }   // label null = 묶음 없이
+
+/** 모델 목록과 바꾸기 — 선택 칸(ModelSelect)과 '/model' 명령이 같이 쓴다.
+ *  로컬 (이 서버) · 외부 API 연결 · CLI (관리자만). value/onCcModel 은 CLI 대화 안에서 세션 모델을 바꿀 때 */
+export function useModelChoice({ running, value, onCcModel }: { running: boolean; value?: string; onCcModel?: (model: string) => void }) {
   const { status, refreshStatus, modelChoice, setModelChoice } = useApp();
   const { isAdmin } = useAuth();
   const ui = useUi();
@@ -92,58 +121,84 @@ export function ModelSelect({ running, value, onCcModel }: { running: boolean; v
     const info = cc?.engines?.find((x) => x.engine === e);
     return [['', '기본 모델'], ...(info?.models ?? []).map((m): [string, string] => [m.id, m.label || m.id])];
   };
-  const cliOption = (e: CcEngine, m: string, label: string) => {
+  const cliOption = (e: CcEngine, m: string, label: string): ModelOpt => {
     const v = cliChoice(e, m), p = problemOf(e);
-    return <option key={v} value={v} disabled={Boolean(p) && current !== v}>⌘ {ENGINE_LABEL[e]} · {label}{p ? ` (${p})` : ''}</option>;
+    return { value: v, label: `⌘ ${ENGINE_LABEL[e]} · ${label}${p ? ` (${p})` : ''}`, disabled: Boolean(p) && current !== v };
   };
+  const list: ModelGroup[] = [];
+  if (locals.length) {
+    list.push({ label: '로컬 (이 서버 · 오프라인)', options: locals.map((m) => ({
+      value: `local:${m.name}`, label: `${m.name}${MODEL_STATE[m.state]}`, disabled: m.state !== 'ready' && !m.active, title: m.note })) });
+  }
+  for (const items of groups) {
+    list.push({ label: `${items[0].connection_title} (외부 · 온라인)`, options: items.map((m) => ({
+      value: m.key, label: `☁ ${m.title}${m.ready ? '' : ' (연결 문제)'}`, disabled: !m.ready && m.key !== modelChoice,
+      title: m.problem ? `연결 문제: ${m.problem}` : `컨텍스트 ${m.context_length.toLocaleString()} 토큰` })) });
+  }
+  if (!groups.length) {   // 아직 연결한 외부 모델이 없어도 고를 수 있는 종류가 보이게 (관리자는 바로 연결하러 간다)
+    list.push({ label: status?.access.offline ? '외부 모델 (폐쇄망 스위치로 꺼짐)' : '외부 모델 (아직 연결 안 됨)', options: [
+      ...['Claude', 'OpenAI', 'Gemini'].map((n) => ({ value: `none:${n}`, label: `☁ ${n} — 관리자가 연결해야 함`, disabled: true })),
+      ...(isAdmin && !status?.access.offline ? [{ value: '__connect__', label: '＋ 외부 모델 연결하기…' }] : [])] });
+  }
+  if (isAdmin) {   // CLI: 이 PC 에 설치·로그인된 Claude Code · Codex · Gemini (관리자만 — 이 PC 계정과 파일 권한으로 일한다)
+    list.push({ label: 'CLI (외부 · 온라인)', options: [
+      ...CC_MODELS.map(([m, label]) => cliOption('claude', m, label)),
+      ...engineModels('codex').map(([m, label]) => cliOption('codex', m, label)),
+      ...engineModels('gemini').map(([m, label]) => cliOption('gemini', m, label)),
+      { value: '__cli__', label: '＋ CLI 연결 관리…' }] });
+    if (groups.length) list.push({ label: null, options: [{ value: '__connect__', label: '＋ 외부 모델 연결 관리…' }] });
+  }
+  return { groups: list, current, choose: onModel, shown: models.length > 0 || external.length > 0 || isAdmin };
+}
+
+/** '/model' 의 고를 값 (연결 안 된 자리 표시는 뺀다) */
+export const modelChoices = ({ groups, current }: ReturnType<typeof useModelChoice>): SlashChoice[] =>
+  groups.flatMap((g) => g.options.filter((o) => !o.value.startsWith('none:'))
+    .map((o) => ({ value: o.value, label: o.label, desc: g.label ?? '', current: o.value === current, disabled: o.disabled })));
+
+/** 모델 고르기 선택 칸 */
+export function ModelSelect(props: { running: boolean; value?: string; onCcModel?: (model: string) => void }) {
+  const { groups, current, choose, shown } = useModelChoice(props);
+  const { isAdmin } = useAuth();
+  if (!shown) return null;
+  const opt = (o: ModelOpt) => <option key={o.value} value={o.value} disabled={o.disabled} title={o.title}>{o.label}</option>;
   return (
-    <>
-      {(models.length > 0 || external.length > 0 || isAdmin) && (
-        <select className="ghost-select model-select" value={current} onChange={(e) => onModel(e.target.value)}
-          title={'모델 — 로컬은 이 서버의 GPU 에서 (오프라인), ☁ 외부 모델은 회사 계정으로 공급사에 보내 처리합니다 (온라인)' + (isAdmin ? ' · CLI 는 이 PC 에 설치된 Claude Code · Codex · Gemini 로 작업합니다' : '')}>
-          {locals.length > 0 && (
-            <optgroup label="로컬 (이 서버 · 오프라인)">
-              {locals.map((m) => (
-                <option key={m.name} value={`local:${m.name}`} disabled={m.state !== 'ready' && !m.active} title={m.note}>{m.name}{MODEL_STATE[m.state]}</option>
-              ))}
-            </optgroup>
-          )}
-          {groups.map((items) => (
-            <optgroup key={items[0].connection} label={`${items[0].connection_title} (외부 · 온라인)`}>
-              {items.map((m) => (
-                <option key={m.key} value={m.key} disabled={!m.ready && m.key !== modelChoice}
-                  title={m.problem ? `연결 문제: ${m.problem}` : `컨텍스트 ${m.context_length.toLocaleString()} 토큰`}>☁ {m.title}{m.ready ? '' : ' (연결 문제)'}</option>
-              ))}
-            </optgroup>
-          ))}
-          {groups.length === 0 && (   // 아직 연결한 외부 모델이 없어도 고를 수 있는 종류가 보이게 (관리자는 바로 연결하러 간다)
-            <optgroup label={status?.access.offline ? '외부 모델 (폐쇄망 스위치로 꺼짐)' : '외부 모델 (아직 연결 안 됨)'}>
-              {['Claude', 'OpenAI', 'Gemini'].map((n) => <option key={n} value={`none:${n}`} disabled>☁ {n} — 관리자가 연결해야 함</option>)}
-              {isAdmin && !status?.access.offline && <option value="__connect__">＋ 외부 모델 연결하기…</option>}
-            </optgroup>
-          )}
-          {isAdmin && (   // CLI: 이 PC 에 설치·로그인된 Claude Code · Codex · Gemini (관리자만 — 이 PC 계정과 파일 권한으로 일한다)
-            <optgroup label="CLI (외부 · 온라인)">
-              {CC_MODELS.map(([m, label]) => cliOption('claude', m, label))}
-              {engineModels('codex').map(([m, label]) => cliOption('codex', m, label))}
-              {engineModels('gemini').map(([m, label]) => cliOption('gemini', m, label))}
-              <option value="__cli__">＋ CLI 연결 관리…</option>
-            </optgroup>
-          )}
-          {groups.length > 0 && isAdmin && <option value="__connect__">＋ 외부 모델 연결 관리…</option>}
-        </select>
-      )}
-    </>
+    <select className="ghost-select model-select" value={current} onChange={(e) => choose(e.target.value)}
+      title={'모델 — 로컬은 이 서버의 GPU 에서 (오프라인), ☁ 외부 모델은 회사 계정으로 공급사에 보내 처리합니다 (온라인)' + (isAdmin ? ' · CLI 는 이 PC 에 설치된 Claude Code · Codex · Gemini 로 작업합니다' : '')}>
+      {groups.map((g) => (g.label === null ? g.options.map(opt) : <optgroup key={g.label} label={g.label}>{g.options.map(opt)}</optgroup>))}
+    </select>
   );
 }
 
-export function Composer({ text, setText, options, setOption, running, onSend, onStop, isNew }: {
+export function Composer({ text, setText, options, setOption, running, onSend, onStop, isNew, extraCommands = [] }: {
   text: string; setText: (v: string) => void;
   options: ComposerOptions; setOption: (key: keyof ComposerOptions, v: string) => void;
-  running: boolean; onSend: () => void; onStop: () => void; isNew: boolean;   // isNew: 새 대화 (작업 위치를 고를 수 있음)
+  running: boolean; onSend: (text?: string) => void; onStop: () => void; isNew: boolean;   // isNew: 새 대화 (작업 위치를 고를 수 있음)
+  extraCommands?: SlashCommand[];   // 대화 화면이 더하는 '/' 명령 (사용량 · 컨텍스트 · 다시 · 중지)
 }) {
-  const { profiles, harnesses, workflows, modelReady, external: chosen } = useApp();
+  const { profiles, harnesses, workflows, modelReady, external: chosen, commands: harnessCmds } = useApp();
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const model = useModelChoice({ running });
+  const levels = effortLevels(chosen);
+  const commands: SlashCommand[] = [   // '/' 명령 — 아래 선택 칸을 키보드로 바꾼다
+    { name: 'new', aliases: ['clear', 'reset', '새대화', '새작업'], desc: '새 대화 시작', kind: 'web', run: () => navigate('/') },
+    { name: 'model', aliases: ['모델'], desc: '모델 바꾸기', kind: 'web', choices: () => modelChoices(model), run: model.choose },
+    { name: 'effort', aliases: ['추론'], desc: '추론 강도', kind: 'web', choices: () => pairChoices(levels, options.effort), run: (v) => setOption('effort', v) },
+    ...(harnesses.some((h) => !h.auto) ? [{ name: 'harness', aliases: ['하네스'], desc: '하네스 고르기 (공통에 더해 붙일 회사·프로젝트)', kind: 'web' as const,
+      choices: () => harnessChoices(harnesses, options.harness), run: (v: string) => setOption('harness', v) }] : []),
+    { name: 'role', aliases: ['용도', 'profile'], desc: '용도 바꾸기 (설정 · 프롬프트)', kind: 'web',
+      choices: () => roleChoices(profiles, harnesses, options.harness, options.choice), run: (v) => setOption('choice', v) },
+    ...(workflows.length ? [{ name: 'workflow', aliases: ['워크플로'], desc: '워크플로로 실행 (노드를 차례로)', kind: 'web' as const,
+      choices: () => workflows.map((w) => ({ value: `wf:${w.name}`, label: `⛓ ${w.name}`, desc: w.description, current: options.choice === `wf:${w.name}` })),
+      run: (v: string) => setOption('choice', v) }] : []),
+    { name: 'approve', aliases: ['승인', 'permissions'], desc: '승인 방식 (파일 쓰기 · 명령 실행을 물어볼지)', kind: 'web',
+      choices: () => pairChoices(APPROVE, options.approve), run: (v) => setOption('approve', v) },
+    { name: 'steps', aliases: ['스텝'], desc: '최대 스텝 (모델을 몇 번까지 부를지)', kind: 'web',
+      choices: () => pairChoices(STEPS, options.maxSteps), run: (v) => setOption('maxSteps', v) },
+  ];
+  const slash = useSlash(text, setText, mergeCommands([...commands, ...extraCommands],
+    harnessCommands(harnessCmds, harnesses, options.harness), templateCommands('AGENT.md')), (t) => onSend(t));
   const ta = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     const el = ta.current;
@@ -158,6 +213,7 @@ export function Composer({ text, setText, options, setOption, running, onSend, o
   const choiceTitle = profile ? `${profile.description}\n도구: ${profile.tools.join(', ')}`
     : wf ? `${wf.description}\n노드: ${wf.nodes.map((n) => `${n.title}(${n.profile})`).join(' → ')}` : '';
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slash.onKeyDown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {   // Shift+Enter = 줄바꿈
       e.preventDefault();
       if (!running) onSend();
@@ -167,12 +223,12 @@ export function Composer({ text, setText, options, setOption, running, onSend, o
   return (
     <>
       <div className="composer">
-        <textarea ref={ta} rows={1} placeholder="무엇이든 시켜보세요" value={text} autoFocus
+        {slash.menu}
+        <textarea ref={ta} rows={1} placeholder="무엇이든 시켜보세요 ( / 를 치면 명령)" value={text} autoFocus
           onChange={(e) => setText(e.target.value)} onKeyDown={onKey} />
         <div className="composer-bar">
           <ModelSelect running={running} />
           {(() => {
-            const levels = !chosen ? LOCAL_EFFORTS : EFFORT_LABELS.filter(([v]) => chosen.kind === 'anthropic' || !['xhigh', 'max'].includes(v));
             const value = levels.some(([v]) => v === options.effort) ? options.effort : options.effort ? 'high' : '';
             return (
               <select className="ghost-select" value={value} onChange={(e) => setOption('effort', e.target.value)}
@@ -199,21 +255,16 @@ export function Composer({ text, setText, options, setOption, running, onSend, o
           {isAdmin && isNew && <BaseDirSelect value={options.base} onChange={(v) => setOption('base', v)} />}
           <select className={`ghost-select${allAuto ? ' danger' : ''}`} title="파일 쓰기·명령 실행을 매번 물어볼지" value={options.approve}
             onChange={(e) => setOption('approve', e.target.value)}>
-            <option value="none">승인: 매번 묻기</option>
-            <option value="writes">승인: 파일 쓰기 자동</option>
-            <option value="all">승인: 전부 자동</option>
+            {APPROVE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           <select className="ghost-select" title="모델을 몇 번까지 부를지. 무제한이면 시간 제한도 없음" value={options.maxSteps}
             onChange={(e) => setOption('maxSteps', e.target.value)}>
-            <option value="20">스텝 20</option>
-            <option value="50">스텝 50</option>
-            <option value="100">스텝 100</option>
-            <option value="0">스텝 무제한</option>
+            {STEPS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           <span className="spacer" />
           <button type="button" className={`send-btn${running ? ' running' : ''}`} disabled={!running && !modelReady}
             title={running ? '중지' : modelReady ? '보내기 (Enter)' : '모델이 준비되면 보낼 수 있습니다'} aria-label={running ? '중지' : '보내기'}
-            onClick={running ? onStop : onSend}>
+            onClick={running ? onStop : () => onSend()}>
             {running ? <svg viewBox="0 0 20 20" width="14" height="14"><rect x="4" y="4" width="12" height="12" rx="2" fill="currentColor" /></svg>
               : <Icon name="send" size={18} />}
           </button>

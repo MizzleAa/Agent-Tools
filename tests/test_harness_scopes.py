@@ -124,3 +124,22 @@ def test_scope_api_and_composer_list(scopes):
     assert c.delete("/api/v1/harness/scopes/beta", headers=H).status_code == 404
     # 실행: 고른 하네스의 용도로 시작 / 없는 하네스는 404
     assert c.post("/api/v1/runs", json={"task": "x", "harness": "nope"}, headers=H).status_code == 404
+
+
+def test_harness_commands_for_slash_menu(scopes):
+    """하네스 commands/*.md = 입력창 '/' 명령. 자료로는 보이지 않고, 폴더 대상 회사를 따른다."""
+    import server.app as srv
+    harness.write("commands/review.md", "---\ndescription: 바뀐 것 검토\nargument-hint: <파일>\n---\n$ARGUMENTS 를 검토해 줘.\n")
+    harness.write("commands/report.md", "# 일일 보고\n오늘 한 일을 정리해 줘.\n", "acme")
+    harness.write("commands/bad name.md", "x\n", "proj-x")                     # 빈칸이 든 이름은 '/' 로 부를 수 없다
+    harness.write("commands/AGENT.md", "---\ncompanies: [A사]\n---\n", "proj-x")
+    harness.write("commands/deploy.md", "배포 절차대로 해 줘.\n", "proj-x")
+    got = {(c["scope"], c["name"]): c for c in harness.commands(None, ["", "acme", "proj-x"])}
+    assert set(got) == {("", "review"), ("acme", "report"), ("proj-x", "deploy")}
+    assert got[("", "review")]["hint"] == "<파일>" and got[("", "review")]["body"] == "$ARGUMENTS 를 검토해 줘."
+    assert got[("acme", "report")]["description"] == "일일 보고"                 # 머리말이 없으면 제목
+    assert {c["name"] for c in harness.commands("B사", ["", "proj-x"])} == {"review"}   # 대상 회사가 아닌 폴더는 뺀다
+    assert not harness.search(None, "검토", scopes=[""])                          # 자료 검색에 섞이지 않는다
+    c = TestClient(srv.app, base_url="http://127.0.0.1")
+    listed = {(x["scope"], x["name"]) for x in c.get("/api/v1/commands").json()}
+    assert listed == {("", "review"), ("acme", "report"), ("proj-x", "deploy")}

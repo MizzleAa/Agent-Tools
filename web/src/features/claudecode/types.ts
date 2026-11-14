@@ -1,5 +1,5 @@
 // WebSocket 이벤트와 정규화된 대화 메시지 모양 (백엔드 ccgui/transcript.py · session_manager.py 와 맞춘다).
-import type { Project, Session } from './api';
+import type { CliCommand, Project, Session } from './api';
 
 export type TextBlock = { type: 'text'; text: string };
 export type ThinkingBlock = { type: 'thinking'; text: string };
@@ -119,7 +119,8 @@ export interface RateLimit {
 export type ServerEvent =
   | { type: 'hello'; session_id: null; data: { client_id: number } }
   | { type: 'pong' | 'resync'; session_id: null; data: Record<string, never> }
-  | { type: 'snapshot'; session_id: string; data: { session: Session | null; process: ProcessInfo | null; pending: PermissionReq[]; live_turn: LiveTurn | null; init: InitInfo | null } }
+  | { type: 'snapshot'; session_id: string; data: { session: Session | null; process: ProcessInfo | null; pending: PermissionReq[]; live_turn: LiveTurn | null; init: InitInfo | null; commands?: CliCommand[] | null } }
+  | { type: 'commands'; session_id: string; data: { commands: CliCommand[] } }
   | { type: 'session.updated'; session_id: string; data: { session: Session } }
   | { type: 'session.deleted'; session_id: string; data: { session_id: string } }
   | { type: 'project.updated'; session_id: null; data: { project: Project } }

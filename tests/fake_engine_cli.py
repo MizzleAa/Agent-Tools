@@ -127,6 +127,9 @@ def handle_gemini(msg: dict) -> None:
         log("session/new", p)
         send({"id": rid, "result": {"sessionId": "gs-fake-1", "models": {"availableModels": [{"modelId": "gemini-fake", "name": "Fake"}],
                                                                            "currentModelId": "gemini-fake"}}})
+        note("session/update", {"sessionId": "gs-fake-1", "update": {"sessionUpdate": "available_commands_update", "availableCommands": [
+            {"name": "memory", "description": "Manage memory.", "input": None},
+            {"name": "restore", "description": "Restore a checkpoint.", "input": {"hint": "<checkpoint>"}}]}})
     elif m == "session/load":
         log("session/load", p)
         note("session/update", {"sessionId": p["sessionId"], "update": {"sessionUpdate": "user_message_chunk",
